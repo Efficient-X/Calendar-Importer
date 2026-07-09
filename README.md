@@ -147,11 +147,13 @@ If Calendar Importer saves you a few clicks, a coffee is always appreciated:
 - [Buy Me a Coffee: Efficient X](https://buymeacoffee.com/efficientx)
 - [Support this plugin directly](https://buymeacoffee.com/efficientx/e/555301)
 
-<p>
-  <img src="assets/efx-logo.png" alt="Efficient X Group" width="96" align="right">
+Built by Efficient X Group.
+
+<p align="right">
+  <img src="assets/efx-logo.png" alt="Efficient X Group" width="96">
 </p>
 
-Built by Efficient X Group.
+<br clear="both">
 
 ## License
 
