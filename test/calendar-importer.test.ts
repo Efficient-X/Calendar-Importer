@@ -293,8 +293,100 @@ END:VEVENT
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].location).toBe("Shop 1 Willoughby NSW 2068");
+    expect(result.events[0].location).toBe("Shop 1\nWilloughby NSW 2068");
     expect(renderEventTask(result.events[0], locationSettings)).toContain("Shop 1 Willoughby NSW 2068");
+  });
+
+  it("repairs raw multiline descriptions that are not valid folded iCalendar", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:raw-description-lines
+SUMMARY:Planning visit
+DESCRIPTION:Bring forms
+Park near the side entrance
+Ask for Stephanie
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBe("Bring forms\nPark near the side entrance\nAsk for Stephanie");
+    expect(renderEventTask(result.events[0], settings)).toContain("Bring forms Park near the side entrance Ask for Stephanie");
+  });
+
+  it("keeps colon-looking raw description lines inside the description", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:raw-description-colon-lines
+SUMMARY:Visit with notes
+DESCRIPTION:First line
+Notes: bring the blue folder
+Address: Willoughby NSW 2068
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBe("First line\nNotes: bring the blue folder\nAddress: Willoughby NSW 2068");
+  });
+
+  it("does not swallow valid calendar fields after a repaired multiline description", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:raw-description-before-date
+SUMMARY:Still dated correctly
+DESCRIPTION:First line
+Second line
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].start.toISOString()).toBe("2026-07-16T09:00:00.000Z");
+    expect(result.events[0].description).toBe("First line\nSecond line");
+  });
+
+  it("decodes old quoted-printable multiline descriptions before parsing", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:quoted-printable-description
+SUMMARY:Old Exchange appointment
+DESCRIPTION;ENCODING=QUOTED-PRINTABLE:Line one=0D=0A=
+Line two=0D=0A=
+Line three with tick =E2=9C=85
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBe("Line one\nLine two\nLine three with tick ✅");
+  });
+
+  it("preserves valid folded iCalendar text without treating it as semantic new lines", () => {
+    const locationSettings = { ...settings, includeLocations: true };
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:folded-location
+SUMMARY:Folded appointment
+LOCATION:123 Main Street
+ Anytown
+ CA 90210
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, locationSettings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBe("123 Main StreetAnytownCA 90210");
   });
 
 });

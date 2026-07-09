@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.11
+
+Multiline calendar text repair release.
+
+- Repair malformed raw multiline `DESCRIPTION`, `LOCATION`, and similar text fields by converting stray physical lines into proper iCalendar `\n` text escapes before parsing.
+- Keep colon-looking text such as `Notes: ...` or `Address: ...` inside the preceding description instead of letting it become a stray fake property.
+- Decode old quoted-printable multiline descriptions from older Outlook/Exchange-style feeds.
+- Preserve valid iCalendar folded lines as folded text, so standards-compliant feeds keep their existing behaviour.
+- Add regression tests for iPhone/iCloud-style multiline addresses, malformed multiline descriptions, quoted-printable descriptions, and valid folded locations.
+
 ## 1.0.10
 
 Release workflow polish.

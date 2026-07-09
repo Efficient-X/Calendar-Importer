@@ -79,22 +79,64 @@ export function eventMatchesFeedFilters(event: NormalizedCalendarEvent, source: 
 export function repairMalformedContentLines(icsText: string): string {
   const lines = icsText.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   const repaired: string[] = [];
+  let lastAppendableIndex = -1;
+  let lastAppendableProperty = "";
 
   for (const line of lines) {
-    if (isContentLine(line) || isContinuationLine(line) || line.trim() === "") {
+    const contentProperty = getContentLineProperty(line);
+    if (contentProperty) {
+      if (
+        lastAppendableIndex >= 0
+        && shouldTreatContentLineAsMalformedContinuation(contentProperty)
+      ) {
+        repaired[lastAppendableIndex] = appendMalformedTextLine(
+          repaired[lastAppendableIndex],
+          line.trim(),
+          lastAppendableProperty,
+        );
+        continue;
+      }
+
+      repaired.push(line);
+      if (canAppendMalformedLine(line)) {
+        lastAppendableIndex = repaired.length - 1;
+        lastAppendableProperty = contentProperty;
+      } else if (isComponentBoundary(contentProperty)) {
+        lastAppendableIndex = -1;
+        lastAppendableProperty = "";
+      } else {
+        lastAppendableIndex = -1;
+        lastAppendableProperty = "";
+      }
+      continue;
+    }
+
+    if (isContinuationLine(line)) {
+      repaired.push(line);
+      if (lastAppendableIndex >= 0) {
+        lastAppendableIndex = repaired.length - 1;
+      }
+      continue;
+    }
+
+    if (line.trim() === "") {
       repaired.push(line);
       continue;
     }
 
-    if (repaired.length === 0 || !canAppendMalformedLine(repaired[repaired.length - 1])) {
+    if (lastAppendableIndex < 0) {
       repaired.push(line);
       continue;
     }
 
-    repaired[repaired.length - 1] = `${repaired[repaired.length - 1]} ${line.trim()}`;
+    repaired[lastAppendableIndex] = appendMalformedTextLine(
+      repaired[lastAppendableIndex],
+      line.trim(),
+      lastAppendableProperty,
+    );
   }
 
-  return repaired.join("\r\n");
+  return decodeQuotedPrintableContentLines(repaired).join("\r\n");
 }
 
 function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
@@ -115,8 +157,8 @@ function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
   return grouped;
 }
 
-function isContentLine(line: string): boolean {
-  return /^[A-Za-z0-9-]+(?:;[^:]*)?:/.test(line);
+function getContentLineProperty(line: string): string {
+  return line.match(/^([A-Za-z0-9-]+)(?:;[^:]*)?:/)?.[1]?.toUpperCase() ?? "";
 }
 
 function isContinuationLine(line: string): boolean {
@@ -124,7 +166,7 @@ function isContinuationLine(line: string): boolean {
 }
 
 function canAppendMalformedLine(line: string): boolean {
-  const property = line.match(/^([A-Za-z0-9-]+)/)?.[1]?.toUpperCase() ?? "";
+  const property = getContentLineProperty(line);
   return [
     "ATTACH",
     "CATEGORIES",
@@ -136,6 +178,161 @@ function canAppendMalformedLine(line: string): boolean {
     "SUMMARY",
     "X-APPLE-STRUCTURED-LOCATION",
     "X-ALT-DESC",
+  ].includes(property);
+}
+
+function shouldTreatContentLineAsMalformedContinuation(property: string): boolean {
+  return !isKnownIcalendarProperty(property) && !property.startsWith("X-");
+}
+
+function isComponentBoundary(property: string): boolean {
+  return property === "BEGIN" || property === "END";
+}
+
+function appendMalformedTextLine(previous: string, line: string, property: string): string {
+  if (isQuotedPrintableLine(previous) && previous.endsWith("=")) {
+    return `${previous.slice(0, -1)}${line}`;
+  }
+  return `${previous}\\n${escapeMalformedTextSegment(line, property)}`;
+}
+
+function escapeMalformedTextSegment(value: string, property: string): string {
+  const normalized = value.replace(/\r?\n/g, "\\n");
+  if (property === "ATTACH") {
+    return normalized;
+  }
+  return normalized.replace(/\\/g, "\\\\");
+}
+
+function isQuotedPrintableLine(line: string): boolean {
+  const colonIndex = line.indexOf(":");
+  const propertyAndParams = colonIndex >= 0 ? line.slice(0, colonIndex) : line;
+  return /(?:^|;)ENCODING="?QUOTED-PRINTABLE"?(?:;|$)/i.test(propertyAndParams);
+}
+
+function decodeQuotedPrintableContentLines(lines: string[]): string[] {
+  const decoded: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isQuotedPrintableLine(line)) {
+      decoded.push(line);
+      continue;
+    }
+
+    let unfolded = line;
+    while (index + 1 < lines.length && isContinuationLine(lines[index + 1])) {
+      const continuation = lines[index + 1].slice(1);
+      unfolded = unfolded.endsWith("=")
+        ? `${unfolded.slice(0, -1)}${continuation}`
+        : `${unfolded}${continuation}`;
+      index += 1;
+    }
+
+    decoded.push(decodeQuotedPrintableContentLine(unfolded));
+  }
+
+  return decoded;
+}
+
+function decodeQuotedPrintableContentLine(line: string): string {
+  const colonIndex = line.indexOf(":");
+  if (colonIndex < 0) {
+    return line;
+  }
+
+  const propertyAndParams = line.slice(0, colonIndex)
+    .replace(/;ENCODING="?QUOTED-PRINTABLE"?/ig, "");
+  const value = line.slice(colonIndex + 1);
+  return `${propertyAndParams}:${escapeIcalendarTextValue(decodeQuotedPrintableValue(value))}`;
+}
+
+function decodeQuotedPrintableValue(value: string): string {
+  const bytes: number[] = [];
+  let output = "";
+
+  const flush = (): void => {
+    if (bytes.length === 0) {
+      return;
+    }
+    output += new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(bytes));
+    bytes.length = 0;
+  };
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === "=" && /^[0-9a-f]{2}$/i.test(value.slice(index + 1, index + 3))) {
+      bytes.push(Number.parseInt(value.slice(index + 1, index + 3), 16));
+      index += 2;
+      continue;
+    }
+
+    flush();
+    output += char;
+  }
+
+  flush();
+  return output;
+}
+
+function escapeIcalendarTextValue(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r\n|\r|\n/g, "\\n");
+}
+
+function isKnownIcalendarProperty(property: string): boolean {
+  return [
+    "ACTION",
+    "ATTACH",
+    "ATTENDEE",
+    "BEGIN",
+    "CALSCALE",
+    "CATEGORIES",
+    "CLASS",
+    "COLOR",
+    "COMMENT",
+    "COMPLETED",
+    "CONTACT",
+    "CREATED",
+    "DESCRIPTION",
+    "DTEND",
+    "DTSTAMP",
+    "DTSTART",
+    "DUE",
+    "DURATION",
+    "END",
+    "EXDATE",
+    "EXRULE",
+    "FREEBUSY",
+    "GEO",
+    "LAST-MODIFIED",
+    "LOCATION",
+    "METHOD",
+    "ORGANIZER",
+    "PERCENT-COMPLETE",
+    "PRIORITY",
+    "PRODID",
+    "RDATE",
+    "RECURRENCE-ID",
+    "RELATED-TO",
+    "REPEAT",
+    "REQUEST-STATUS",
+    "RESOURCES",
+    "RRULE",
+    "SEQUENCE",
+    "STATUS",
+    "SUMMARY",
+    "TRANSP",
+    "TRIGGER",
+    "TZID",
+    "TZNAME",
+    "TZOFFSETFROM",
+    "TZOFFSETTO",
+    "TZURL",
+    "UID",
+    "URL",
+    "VERSION",
   ].includes(property);
 }
 
