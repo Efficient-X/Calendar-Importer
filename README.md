@@ -18,7 +18,7 @@
 
 Bring external calendar events into your task notes without retyping them.
 
-Calendar Importer turns Google Calendar, Outlook, iCloud, Zoho, and other iCal/ICS calendar feeds into clean markdown tasks.
+Calendar Importer turns readable Google Calendar, Outlook, iCloud, Zoho, and other iCal/ICS calendar feeds into clean markdown tasks.
 
 Using a shared calendar with someone who has not yet found the warm glow of Obsidian? Let them keep adding events in their calendar app while Calendar Importer quietly brings those dates into your vault. Boom!
 
@@ -57,11 +57,13 @@ Common sources include:
 - <img src="assets/microsoft-outlook.png" width="18" height="18" alt="Microsoft Outlook"> Microsoft Outlook and Microsoft 365 published ICS links
 - <img src="assets/apple-icloud.png" width="18" height="18" alt="Apple iCloud"> Apple iCloud public calendar links
 - <img src="assets/zoho-calendar.png" width="18" height="18" alt="Zoho Calendar"> Zoho Calendar public or private iCal URLs
-- Other calendars that publish `.ics`, `webcal://`, or iCalendar feed URLs
+- Other calendars that publish direct `.ics`, `webcal://`, or iCalendar feed URLs
 
 Private calendar links can expose your calendar, so treat them like passwords.
 
 Apple `webcal://` links are fine. Paste them in and Calendar Importer will do the boring protocol translation for you.
+
+The tiny compatibility rule: if the link opens to real iCalendar text, Calendar Importer can work with it. If the link needs a login page, OAuth, CalDAV account setup, cookies, or an HTML calendar page, that is a different animal.
 
 Need the link? The [provider setup guide](docs/provider-guides.md) walks through Google Calendar, Outlook, iCloud, and Zoho without making you feel like you accidentally joined a networking course.
 
@@ -118,9 +120,13 @@ Want more ready-to-paste snippets? See [daily note recipes](docs/daily-note-reci
 - Can add colours, tags, source labels, locations, descriptions, and reminders.
 - Hides private feed URLs from ordinary status and error messages.
 
+Supported feed types: `https://`, `http://`, `webcal://`, and `webcals://` links that return iCalendar/ICS content.
+
 ## What It Does Not Do
 
 Calendar Importer does not upload tasks from Obsidian back into Google Calendar, Outlook, iCloud, or other calendar apps.
+
+It also does not sign in to calendar accounts, connect to CalDAV servers, or scrape calendar web pages. It wants the feed link. Give it the feed link and it is happy.
 
 That is deliberate. Turning free-form notes into calendar events gets messy fast: everyone writes dates, times, titles, locations, repeats, reminders, and half-ideas differently. Calendar apps expect a strict format, and getting that wrong creates calendar chaos. The simpler, sturdier workflow is to add events to your calendar first, then let Calendar Importer bring them into Obsidian.
 
