@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.10
+
+Release workflow polish.
+
+- Carry forward the red-team hardening fixes from 1.0.8 and 1.0.9.
+- Make the release verifier use an OS-neutral temp path so the GitHub Linux runner can verify release assets cleanly.
+
 ## 1.0.9
 
 Red-team hardening follow-up.

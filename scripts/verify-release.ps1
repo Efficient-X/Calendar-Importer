@@ -55,7 +55,14 @@ foreach ($asset in $requiredAssets) {
   }
 }
 
-$tempDir = Join-Path $env:TEMP "calendar-importer-release-$Version"
+$tempRoot = if ($env:TEMP) {
+  $env:TEMP
+} elseif ($env:TMPDIR) {
+  $env:TMPDIR
+} else {
+  [System.IO.Path]::GetTempPath()
+}
+$tempDir = Join-Path $tempRoot "calendar-importer-release-$Version"
 if (Test-Path $tempDir) {
   Remove-Item -LiteralPath $tempDir -Recurse -Force
 }
