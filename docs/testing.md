@@ -1,23 +1,23 @@
 # Tester Checklist
 
-Useful things to check during private testing:
+Here is the quick test lap:
 
-- Add one feed and run `Preview`.
+- Add one calendar feed and run `Preview`.
 - Run `Sync now` and confirm the calendar note is created.
-- Complete one imported task, sync again, and confirm it stays completed or moves to the completed section.
+- Complete one imported task, sync again, and confirm it stays completed.
 - Try a recurring event.
 - Try an all-day event.
-- Try a multi-day all-day event.
-- Try a calendar event with a location or description.
-- Confirm private feed URLs are not visible in ordinary status messages.
+- Try a multi-day event.
+- Try an event with a location or description.
+- Confirm private feed links are not shown in normal status messages.
 - Confirm Tasks queries can find imported events.
 
-Please include the following when reporting an issue:
+If something feels off, please include:
 
 - Obsidian version
 - Operating system
 - Calendar provider
 - Whether the event is timed, all-day, recurring, or a reminder
-- Any error shown in plugin settings
+- Any error shown in Calendar Importer settings
 
-Do not share private calendar feed URLs in issue reports.
+Please do not share private calendar feed links in issue reports.

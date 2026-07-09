@@ -16,35 +16,39 @@
   <a href="https://buymeacoffee.com/efficientx/e/555301">Support this plugin directly</a>
 </p>
 
-Import iCal/ICS calendar feeds into [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks)-compatible Obsidian tasks.
+Bring your calendars into your task notes without retyping everything by hand.
 
-Calendar Importer reads calendar events from iCal feeds, writes them into an Obsidian note, and keeps that note updated when you sync. It is for people who want appointments, school events, shared calendars, reminders, bills, travel dates, and other scheduled commitments visible inside Obsidian without retyping them by hand.
+Calendar Importer turns Google Calendar, Outlook, iCloud, Zoho, and other calendar feeds into clean markdown tasks that work nicely with the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks).
+
+Shared calendar with someone who has not yet found the warm glow of Obsidian? No problem. They can keep adding events in their calendar app, and Calendar Importer quietly brings those dates into your vault as tasks. Less double entry, more living in your notes. How good.
 
 ```markdown
-- [ ] Haircut - Friday - 16:00-16:30 📅 2026-08-07 #calendar
-- [ ] Rent due - Monday - All day 📅 2026-08-10 #home
-- [ ] Reminder: Dentist - Tuesday - 09:00 📅 2026-08-11 #health
+- [ ] Haircut - Friday - 16:00-16:30 2026-08-07 #calendar
+- [ ] Rent due - Monday - All day 2026-08-10 #home
+- [ ] Reminder: Dentist - Tuesday - 09:00 2026-08-11 #health
 ```
 
 ## Installation
 
-Follow the steps below to install Calendar Importer from Obsidian's community plugins browser.
+Once Calendar Importer is available in Community Plugins:
 
-1. Search for `Calendar Importer` in Obsidian's community plugins browser.
-2. Install the plugin.
-3. Enable the plugin in Obsidian settings under `Community plugins`.
+1. Search for `Calendar Importer`.
+2. Install it.
+3. Enable it.
 4. Open `Settings > Calendar Importer`.
-5. Add an iCal/ICS calendar feed URL.
-6. Click `Preview` to check the imported task output.
+5. Paste a calendar feed link.
+6. Click `Preview`.
 7. Click `Sync now`.
 
-If the plugin is not yet visible in Community Plugins, see [manual installation and testing](docs/installation.md).
+That is the whole dance.
+
+If the plugin is not yet visible in Community Plugins, see [installation and testing](docs/installation.md).
 
 ## Getting Started
 
-### Add a calendar feed
+### Add a calendar
 
-Open the plugin settings, add a feed, and paste a private or published iCal/ICS URL from your calendar provider.
+Open the plugin settings, add a feed, and paste a private or published calendar link.
 
 Common sources include:
 
@@ -52,11 +56,11 @@ Common sources include:
 - <img src="assets/microsoft-outlook.png" width="18" height="18" alt="Microsoft Outlook"> Microsoft Outlook and Microsoft 365 published ICS links
 - <img src="assets/apple-icloud.png" width="18" height="18" alt="Apple iCloud"> Apple iCloud public calendar links
 - <img src="assets/zoho-calendar.png" width="18" height="18" alt="Zoho Calendar"> Zoho Calendar public or private iCal URLs
-- Other calendars that publish standard `.ics`, `webcal://`, or iCalendar feed URLs
+- Other calendars that publish `.ics`, `webcal://`, or iCalendar feed URLs
 
-Private calendar feed URLs should be treated like passwords. Anyone with the URL may be able to read that calendar feed.
+Private calendar links can expose your calendar, so treat them like passwords.
 
-### Sync into an Obsidian note
+### Choose where tasks go
 
 By default, Calendar Importer writes to:
 
@@ -64,11 +68,11 @@ By default, Calendar Importer writes to:
 Calendar/My Calendar Events.md
 ```
 
-The plugin manages only its configured calendar section and preserves content outside that section.
+The plugin only manages its own calendar section. Your notes outside that section are left alone.
 
-### Show calendar tasks in daily notes
+### Use daily notes
 
-Calendar Importer works especially well with the [Obsidian Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks). Keep imported events in one calendar note, then query them from daily notes, dashboards, weekly reviews, or project notes.
+Calendar Importer pairs beautifully with the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks). Keep all imported events in one calendar note, then pull today, tomorrow, or this week into your daily notes.
 
 ```tasks
 not done
@@ -76,7 +80,7 @@ due today
 path includes Calendar/My Calendar Events
 ```
 
-For a more focused daily note dashboard:
+A more focused daily note setup:
 
 ````markdown
 > [!danger]+ Tasks due today
@@ -96,23 +100,22 @@ For a more focused daily note dashboard:
 > ```
 ````
 
-## Features
+## What It Does
 
-- Sync one or more iCal/ICS calendar feeds.
-- Render calendar events as Tasks-compatible markdown tasks.
-- Preview sync output before writing notes.
-- Preserve manually completed tasks.
-- Move completed calendar tasks into a completed section.
-- Expand recurring events inside a rolling sync window.
-- Expand multi-day all-day events into one task per day, or keep them as one task.
-- Optionally create reminder tasks from iCal alarms.
-- Include locations, descriptions, calendar names, organizers, created dates, and modified dates when feeds provide them.
-- Use per-feed colours, tags, source labels, and keyword filters.
-- Mask private feed URLs in status and error messages.
+- Imports one or more calendar feeds.
+- Writes events as markdown tasks.
+- Lets you preview before changing notes.
+- Keeps completed imported tasks completed.
+- Moves completed calendar tasks into a completed section if you want.
+- Handles recurring events, all-day events, and multi-day events.
+- Can add colours, tags, source labels, locations, descriptions, and reminders.
+- Hides private feed URLs from ordinary status and error messages.
 
-## Use Cases
+## Why People Use It
 
-Calendar Importer helps with Obsidian calendar sync, Google Calendar to Obsidian workflows, Outlook calendar import, iCloud calendar import, ICS to markdown, and calendar events as Obsidian Tasks. It is useful for daily notes, dashboards, task planning, family calendars, school calendars, bills, appointments, travel dates, and recurring reminders.
+Calendar Importer helps with calendar sync, Google Calendar to Obsidian workflows, Outlook calendar import, iCloud calendar import, ICS to markdown, daily notes, dashboards, school calendars, family calendars, bills, appointments, travel dates, and recurring reminders.
+
+Or, said less like a search engine: it gets your calendar commitments into the place you actually plan your day.
 
 ## Documentation
 
@@ -126,7 +129,7 @@ Calendar Importer helps with Obsidian calendar sync, Google Calendar to Obsidian
 
 ## Support
 
-If this plugin saves you time, you can support development through Buy Me a Coffee:
+If Calendar Importer saves you a few clicks, a coffee is always appreciated:
 
 - [Buy Me a Coffee: Efficient X](https://buymeacoffee.com/efficientx)
 - [Support this plugin directly](https://buymeacoffee.com/efficientx/e/555301)

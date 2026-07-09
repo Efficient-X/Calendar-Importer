@@ -1,11 +1,19 @@
 # Changelog
 
+## 1.0.1
+
+Copy polish release.
+
+- Make the README and user documentation simpler, warmer, and easier to follow.
+- Update the plugin description to be clearer for the Community Plugins listing.
+
 ## 1.0.0
 
 Initial Calendar Importer community release.
 
 - Import one or more iCal/ICS calendar feeds into Obsidian.
 - Render calendar events as Tasks-compatible markdown tasks.
+- Add friendlier README and documentation for first-time users.
 - Support Google Calendar, Outlook/Microsoft 365, iCloud, Zoho, and other standard iCal/ICS feeds where readable feed URLs are available.
 - Add feed colours, feed tags, source labels, and keyword filters.
 - Support rolling sync windows with configurable past and future days.

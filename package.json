@@ -1,7 +1,7 @@
 {
   "name": "calendar-importer",
-  "version": "1.0.0",
-  "description": "Obsidian plugin that imports iCal/ICS calendar feeds into Tasks-compatible tasks.",
+  "version": "1.0.1",
+  "description": "Bring shared calendars into your task notes without retyping them.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
