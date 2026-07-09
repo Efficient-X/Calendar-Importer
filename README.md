@@ -62,6 +62,8 @@ Common sources include:
 
 Private calendar links can expose your calendar, so treat them like passwords.
 
+Need the link? The [provider setup guide](docs/provider-guides.md) walks through Google Calendar, Outlook, iCloud, and Zoho without making you feel like you accidentally joined a networking course.
+
 ### Choose where tasks go
 
 By default, Calendar Importer writes to:
@@ -78,8 +80,9 @@ Calendar Importer pairs beautifully with the [Tasks plugin](https://github.com/o
 
 ```tasks
 not done
-due today
+happens on today
 path includes Calendar/My Calendar Events
+sort by happens
 ```
 
 A more focused daily note setup:
@@ -92,6 +95,8 @@ A more focused daily note setup:
 > description regex does not match /^$/
 > ```
 ````
+
+Want more ready-to-paste snippets? See [daily note recipes](docs/daily-note-recipes.md).
 
 ````markdown
 > [!caution]- Tasks due within 3 days
@@ -132,6 +137,8 @@ Or, said less like a search engine: it gets your calendar commitments into the p
 ## Documentation
 
 - [Installation and testing](docs/installation.md)
+- [Provider setup guide](docs/provider-guides.md)
+- [Daily note recipes](docs/daily-note-recipes.md)
 - [Settings overview](docs/settings.md)
 - [Commands](docs/commands.md)
 - [FAQ](docs/faq.md)

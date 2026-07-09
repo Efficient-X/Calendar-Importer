@@ -45,6 +45,67 @@
   font-size: var(--font-ui-smaller);
 }
 
+.calendar-importer-onboarding {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary-alt);
+}
+
+.calendar-importer-onboarding-title {
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.calendar-importer-onboarding p {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--text-muted);
+}
+
+.calendar-importer-check-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+.calendar-importer-check-state {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-ui-smaller);
+  min-width: 42px;
+  padding: 1px 6px;
+  text-align: center;
+}
+
+.calendar-importer-check-item.is-done .calendar-importer-check-state {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.calendar-importer-advanced {
+  margin-top: 1.4rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.calendar-importer-advanced > summary {
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 0.35rem 0;
+}
+
+.calendar-importer-advanced > p {
+  color: var(--text-muted);
+  margin: 0.25rem 0 0.75rem;
+}
+
 .calendar-importer-support {
   align-items: center;
   display: flex;
@@ -78,27 +139,53 @@
   min-width: 48px;
 }
 
-.calendar-importer-colour-palette {
+.calendar-importer-colour-choices {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-left: 8px;
+  max-width: 430px;
 }
 
-.calendar-importer-colour-chip {
+.calendar-importer-colour-choice {
   align-items: center;
+  background: color-mix(in srgb, var(--calendar-importer-choice-colour) 20%, var(--background-primary));
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
   display: inline-flex;
   gap: 5px;
-  padding: 2px 6px;
+  min-height: 26px;
+  padding: 3px 7px;
 }
 
-.calendar-importer-colour-chip-swatch {
+.calendar-importer-colour-choice::before {
+  background: var(--calendar-importer-choice-colour);
+  border: 1px solid rgba(0, 0, 0, 0.18);
   border-radius: 3px;
+  content: "";
   display: inline-block;
   height: 12px;
   width: 12px;
+}
+
+.calendar-importer-colour-choice.is-empty {
+  background: var(--background-secondary);
+}
+
+.calendar-importer-colour-choice.is-empty::before {
+  background: transparent;
+  border-color: var(--background-modifier-border);
+}
+
+.calendar-importer-colour-choice.is-selected {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+}
+
+.calendar-importer-colour-choice:hover {
+  border-color: var(--interactive-accent);
 }
 
 .calendar-importer-settings details.calendar-importer-feed {

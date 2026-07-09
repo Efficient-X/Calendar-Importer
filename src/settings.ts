@@ -52,14 +52,51 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     supportLink.setAttr("target", "_blank");
     supportLink.setAttr("rel", "noopener");
     this.renderStatus(containerEl);
+    this.renderOnboardingChecklist(containerEl);
 
     this.renderQuickActions(containerEl);
     this.renderFeeds(containerEl);
-    this.renderSyncSettings(containerEl);
     this.renderNoteSettings(containerEl);
-    this.renderRenderingSettings(containerEl);
-    this.renderSafetySettings(containerEl);
-    this.renderDebugSettings(containerEl);
+    this.renderAdvancedControls(containerEl);
+  }
+
+  private renderOnboardingChecklist(containerEl: HTMLElement): void {
+    const checklist = containerEl.createDiv({ cls: "calendar-importer-onboarding" });
+    checklist.createEl("div", { cls: "calendar-importer-onboarding-title", text: "First run checklist" });
+    checklist.createEl("p", {
+      text: "Calendar in, tasks out. Tiny miracle, minimal drama.",
+    });
+
+    const hasFeed = this.plugin.settings.feeds.some((feed) => feed.url.trim());
+    const hasPreview = Boolean(this.plugin.settings.lastPreview);
+    const hasSynced = Boolean(this.plugin.settings.lastSyncTime);
+    const hasDestination = Boolean(this.plugin.settings.calendarNotePath.trim());
+
+    this.renderChecklistItem(checklist, hasFeed, "Add a calendar feed link");
+    this.renderChecklistItem(checklist, hasPreview, "Run Preview so you can see the goods before anything changes");
+    this.renderChecklistItem(checklist, hasSynced, "Run Sync now when the preview looks right");
+    this.renderChecklistItem(checklist, hasDestination, `Open ${this.plugin.settings.calendarNotePath || "your calendar note"} and admire the lack of double entry`);
+  }
+
+  private renderChecklistItem(containerEl: HTMLElement, done: boolean, text: string): void {
+    const item = containerEl.createDiv({ cls: `calendar-importer-check-item${done ? " is-done" : ""}` });
+    item.createSpan({ cls: "calendar-importer-check-state", text: done ? "Done" : "Next" });
+    item.createSpan({ text });
+  }
+
+  private renderAdvancedControls(containerEl: HTMLElement): void {
+    const advanced = containerEl.createEl("details", { cls: "calendar-importer-advanced" });
+    advanced.createEl("summary", {
+      text: "Advanced controls",
+    });
+    advanced.createEl("p", {
+      text: "Optional knobs for sync windows, task templates, retention, and debugging. Leave them alone until you want the extra control.",
+    });
+
+    this.renderSyncSettings(advanced);
+    this.renderRenderingSettings(advanced);
+    this.renderSafetySettings(advanced);
+    this.renderDebugSettings(advanced);
   }
 
   private renderStatus(containerEl: HTMLElement): void {
@@ -318,7 +355,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
   }
 
   private renderNoteSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Note").setHeading();
+    new Setting(containerEl).setName("Destination note").setHeading();
 
     new Setting(containerEl)
       .setName("Calendar note path")
@@ -719,37 +756,41 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       .setName("Colour")
       .setDesc("Fallback colour used when the feed does not provide event colours.");
     const selectedSwatch = setting.controlEl.createSpan({ cls: "calendar-importer-colour-preview" });
+    const choices = setting.controlEl.createDiv({ cls: "calendar-importer-colour-choices" });
+    const buttons: HTMLButtonElement[] = [];
 
     const updateSelectedSwatch = (value: string): void => {
       selectedSwatch.toggleClass("is-empty", !value);
       selectedSwatch.setText(value ? "" : "None");
       selectedSwatch.style.backgroundColor = value || "transparent";
+      for (const button of buttons) {
+        button.toggleClass("is-selected", button.dataset.value === value);
+      }
     };
 
-    setting.addDropdown((dropdown) => {
-      for (const colour of FEED_COLOURS) {
-        dropdown.addOption(colour.value, colour.name);
+    for (const colour of FEED_COLOURS) {
+      const button = choices.createEl("button", {
+        cls: `calendar-importer-colour-choice${colour.value ? "" : " is-empty"}`,
+        text: colour.name,
+      });
+      button.type = "button";
+      button.dataset.value = colour.value;
+      button.setAttr("aria-label", colour.name === "None" ? "No fallback colour" : `Use ${colour.name}`);
+      if (colour.value) {
+        button.style.setProperty("--calendar-importer-choice-colour", colour.value);
       }
-      const current = normalizeFeedColour(feed.color);
-      updateSelectedSwatch(current);
-      dropdown
-        .setValue(current)
-        .onChange(async (value) => {
-          feed.color = value;
-          updateSelectedSwatch(value);
+      button.addEventListener("click", () => {
+        this.runSafely(async () => {
+          feed.color = colour.value;
+          updateSelectedSwatch(colour.value);
           await this.plugin.saveSettings();
         });
-    });
-
-    const palette = setting.descEl.createDiv({ cls: "calendar-importer-colour-palette" });
-    for (const colour of FEED_COLOURS.filter((entry) => entry.value)) {
-      const item = palette.createSpan({ cls: "calendar-importer-colour-chip" });
-      item.createSpan({
-        cls: "calendar-importer-colour-chip-swatch",
-        attr: { style: `background-color:${colour.value}` },
       });
-      item.createSpan({ text: colour.name });
+      buttons.push(button);
     }
+
+    updateSelectedSwatch(normalizeFeedColour(feed.color));
+
   }
 
   private runSafely(action: () => Promise<unknown>): void {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.4
+
+Onboarding and reach release.
+
+- Add a first-run checklist to the settings page.
+- Keep everyday controls visible and move advanced sync, rendering, safety, and debug controls behind an Advanced fold-out.
+- Replace the colour dropdown with clickable colour chips.
+- Add provider setup documentation for Google Calendar, Outlook/Microsoft 365, iCloud, Zoho, and other iCal/ICS feeds.
+- Add daily note recipe documentation with ready-to-paste Tasks queries.
+- Link the new guides from the README and installation docs.
+
 ## 1.0.3
 
 Settings compatibility release.

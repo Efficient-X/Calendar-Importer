@@ -1,12 +1,23 @@
 # Settings Overview
 
-Most people only need three things:
+Most people only need the Basic area:
 
 1. Add a calendar feed.
 2. Choose the note where imported tasks should live.
 3. Click `Preview`, then `Sync now`.
 
-The rest is there when you want more control.
+Advanced controls are folded away until you want more control. They are there for people who enjoy knobs, dials, and reading the manual on purpose.
+
+## First Run Checklist
+
+The settings page shows a quick checklist:
+
+1. Add a calendar feed link.
+2. Run `Preview`.
+3. Run `Sync now`.
+4. Open your calendar note.
+
+Once all four are done, you are basically operating a tiny calendar conveyor belt. Nice.
 
 ## Quick Actions
 
@@ -29,7 +40,17 @@ Each calendar feed can have:
 
 You can have one calendar or several. Work, family, bills, school, travel, the lot.
 
-## Sync
+## Destination Note
+
+Choose the note and heading Calendar Importer manages.
+
+Content outside that calendar section is preserved, so you can keep your own notes around it.
+
+## Advanced Controls
+
+Open this when you want to tune the machinery.
+
+### Sync
 
 Choose how far back and forward Calendar Importer should look.
 
@@ -40,13 +61,7 @@ Default:
 
 That keeps your notes focused on what is coming up.
 
-## Note
-
-Choose the note and heading Calendar Importer manages.
-
-Content outside that calendar section is preserved, so you can keep your own notes around it.
-
-## Rendering
+### Rendering
 
 Choose how imported tasks look:
 
@@ -59,7 +74,7 @@ Choose how imported tasks look:
 
 If you are not sure, leave the defaults alone. They are designed to be tidy out of the box.
 
-## Safety
+### Safety
 
 Calendar Importer can preserve completed imported tasks and move them into:
 
@@ -68,3 +83,7 @@ Calendar Importer can preserve completed imported tasks and move them into:
 ```
 
 You can keep completed tasks forever or trim them after a set number of days.
+
+### Debug
+
+Debug is for troubleshooting. Most people can leave it closed and enjoy a peaceful life.

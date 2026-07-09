@@ -15,6 +15,10 @@ Once Calendar Importer is available in Obsidian's Community Plugins:
 
 That is the easy path. Calendar in, tasks out.
 
+If you need help finding your calendar link, use the [provider setup guide](provider-guides.md).
+
+If you want daily note views, grab a snippet from [daily note recipes](daily-note-recipes.md).
+
 ## Manual Release Install
 
 Use this while the plugin is still being tested.
