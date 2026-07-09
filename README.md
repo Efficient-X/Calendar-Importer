@@ -22,7 +22,7 @@ Calendar Importer turns Google Calendar, Outlook, iCloud, Zoho, and other iCal/I
 
 Using a shared calendar with someone who has not yet found the warm glow of Obsidian? Let them keep adding events in their calendar app while Calendar Importer quietly brings those dates into your vault. Boom!
 
-Less double entry, and more Obsidian time for you. How good.
+Less double entry, and more Obsidian time for you. How good!
 
 ```markdown
 - [ ] Haircut - Friday - 16:00-16:30 2026-08-07 #calendar
