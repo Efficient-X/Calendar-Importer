@@ -1,0 +1,49 @@
+{
+  "name": "calendar-importer",
+  "version": "1.0.0",
+  "description": "Obsidian plugin that imports iCal/ICS calendar feeds into Tasks-compatible tasks.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "google-calendar",
+    "ical",
+    "ics",
+    "calendar-importer",
+    "tasks"
+  ],
+  "author": "Efficient X Group",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Efficient-X/Calendar-Importer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Efficient-X/Calendar-Importer/issues"
+  },
+  "funding": {
+    "type": "buymeacoffee",
+    "url": "https://buymeacoffee.com/efficientx"
+  },
+  "homepage": "https://github.com/Efficient-X/Calendar-Importer#readme",
+  "license": "MIT",
+  "dependencies": {
+    "ical.js": "^2.2.1",
+    "luxon": "^3.5.0",
+    "rrule": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "obsidian": "^1.7.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

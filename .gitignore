@@ -1,0 +1,10 @@
+node_modules/
+.pnpm-store/
+.agents/
+main.js
+*.bak
+.DS_Store
+data.json
+data.settings-backup.json
+*.settings-memory.json
+EFX_HANDOFF.md

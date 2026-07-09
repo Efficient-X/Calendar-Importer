@@ -1,0 +1,11 @@
+{
+  "id": "calendar-importer",
+  "name": "Calendar Importer",
+  "version": "1.0.0",
+  "minAppVersion": "1.13.0",
+  "description": "Import iCal/ICS calendar feeds into Tasks-compatible markdown tasks.",
+  "author": "Efficient X Group",
+  "authorUrl": "https://github.com/Efficient-X",
+  "fundingUrl": "https://buymeacoffee.com/efficientx",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,198 @@
+.calendar-importer-settings {
+  max-width: 820px;
+}
+
+.calendar-importer-settings h2 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-importer-settings h3 {
+  margin: 1.6rem 0 0.75rem;
+  padding: 0.45rem 0 0.45rem 0.75rem;
+  border-left: 4px solid var(--interactive-accent);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  border-radius: 6px;
+  font-size: 1.05em;
+}
+
+.calendar-importer-settings p {
+  line-height: 1.45;
+}
+
+.calendar-importer-status {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.calendar-importer-status-title {
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.calendar-importer-status-body {
+  margin-top: 0.25rem;
+  line-height: 1.45;
+}
+
+.calendar-importer-status-meta {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.calendar-importer-support {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 8px 0 16px;
+}
+
+.calendar-importer-support a {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.calendar-importer-colour-preview {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 24px;
+  min-width: 24px;
+  margin-left: 8px;
+  padding: 0 6px;
+  vertical-align: middle;
+}
+
+.calendar-importer-colour-preview.is-empty {
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  justify-content: center;
+  min-width: 48px;
+}
+
+.calendar-importer-colour-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.calendar-importer-colour-chip {
+  align-items: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  display: inline-flex;
+  gap: 5px;
+  padding: 2px 6px;
+}
+
+.calendar-importer-colour-chip-swatch {
+  border-radius: 3px;
+  display: inline-block;
+  height: 12px;
+  width: 12px;
+}
+
+.calendar-importer-settings details.calendar-importer-feed {
+  margin: 0.75rem 0 1.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.calendar-importer-settings details.calendar-importer-feed > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+
+.calendar-importer-settings .setting-item {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--background-modifier-border);
+  background: transparent;
+}
+
+.calendar-importer-settings .setting-item:first-child {
+  border-top: 0;
+}
+
+.calendar-importer-settings .setting-item-info {
+  padding-right: 1rem;
+}
+
+.calendar-importer-settings .setting-item-name {
+  line-height: 1.35;
+}
+
+.calendar-importer-settings .setting-item-description {
+  line-height: 1.4;
+  padding-top: 0.2rem;
+}
+
+.calendar-importer-settings .setting-item-control input[type="text"],
+.calendar-importer-settings .setting-item-control input[type="password"],
+.calendar-importer-settings .setting-item-control textarea,
+.calendar-importer-settings .setting-item-control select {
+  min-height: 32px;
+  padding: 6px 10px;
+  line-height: 1.35;
+}
+
+.calendar-importer-settings .setting-item-control input[type="text"],
+.calendar-importer-settings .setting-item-control input[type="password"] {
+  min-width: 220px;
+}
+
+.calendar-importer-settings .setting-item-control textarea {
+  width: min(420px, 100%);
+}
+
+.calendar-importer-settings button {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.calendar-importer-swatch {
+  display: inline-block;
+  width: 0.8em;
+  text-align: center;
+}
+
+.calendar-importer-preview-line {
+  display: block;
+  max-width: 480px;
+  white-space: normal;
+  line-height: 1.45;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+@media (max-width: 700px) {
+  .calendar-importer-settings .setting-item {
+    display: block;
+  }
+
+  .calendar-importer-settings .setting-item-info {
+    padding-right: 0;
+    margin-bottom: 0.45rem;
+  }
+
+  .calendar-importer-settings .setting-item-control {
+    justify-content: flex-start;
+  }
+
+  .calendar-importer-settings .setting-item-control input[type="text"],
+  .calendar-importer-settings .setting-item-control input[type="password"],
+  .calendar-importer-settings .setting-item-control textarea {
+    width: 100%;
+  }
+}
