@@ -104,7 +104,7 @@ A more focused daily note setup:
 
 ## What It Does
 
-- Imports one or more calendar feeds.
+- Imports one or more calendar feeds into Obsidian.
 - Writes events as markdown tasks.
 - Lets you preview before changing notes.
 - Keeps completed imported tasks completed.
@@ -112,6 +112,16 @@ A more focused daily note setup:
 - Handles recurring events, all-day events, and multi-day events.
 - Can add colours, tags, source labels, locations, descriptions, and reminders.
 - Hides private feed URLs from ordinary status and error messages.
+
+## What It Does Not Do
+
+Calendar Importer does not upload tasks from Obsidian back into Google Calendar, Outlook, iCloud, or other calendar apps.
+
+That is deliberate. Turning free-form notes into calendar events gets messy fast: everyone writes dates, times, titles, locations, repeats, reminders, and half-ideas differently. Calendar apps expect a strict format, and getting that wrong creates calendar chaos. The simpler, sturdier workflow is to add events to your calendar first, then let Calendar Importer bring them into Obsidian.
+
+Same effort, less drama.
+
+It also works better for shared calendars. If someone else adds, moves, or cancels an event, your vault can pick it up on the next sync even if they have never opened Obsidian in their life.
 
 ## Why People Use It
 
@@ -124,6 +134,7 @@ Or, said less like a search engine: it gets your calendar commitments into the p
 - [Installation and testing](docs/installation.md)
 - [Settings overview](docs/settings.md)
 - [Commands](docs/commands.md)
+- [FAQ](docs/faq.md)
 - [Privacy and feed URL safety](docs/privacy.md)
 - [Tester checklist](docs/testing.md)
 - [Development](docs/development.md)
