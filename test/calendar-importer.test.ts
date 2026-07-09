@@ -150,6 +150,22 @@ END:VEVENT
     ]);
   });
 
+  it("does not let old daily recurrences burn through the expansion cap before the current window", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:old-daily-recur
+SUMMARY:Daily shared calendar thing
+DTSTART:20100101T090000Z
+DTEND:20100101T091500Z
+RRULE:FREQ=DAILY
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(31);
+    expect(result.events[0].start.toISOString()).toBe("2026-07-01T09:00:00.000Z");
+  });
+
   it("filters cancelled events by default", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT
@@ -296,6 +312,15 @@ describe("feed URL handling", () => {
   it("leaves ordinary web links alone", () => {
     expect(normalizeFeedUrl(" https://example.com/calendar.ics ")).toBe("https://example.com/calendar.ics");
   });
+
+  it("rejects unsupported URL schemes before requestUrl sees them", () => {
+    expect(() => normalizeFeedUrl("file:///Users/brendon/calendar.ics")).toThrow(/supports/);
+    expect(() => normalizeFeedUrl("ftp://example.com/calendar.ics")).toThrow(/supports/);
+  });
+
+  it("rejects malformed feed URLs with a friendly message", () => {
+    expect(() => normalizeFeedUrl("not a url")).toThrow(/valid calendar feed URL/);
+  });
 });
 
 describe("rendering and sorting", () => {
@@ -366,6 +391,30 @@ describe("rendering and sorting", () => {
       includeEventCreated: true,
       includeEventLastModified: true,
     })).toContain(" | Created by Alex Example; Created 2026-07-01 01:00; Modified 2026-07-02 02:00");
+  });
+
+  it("renders untrusted calendar text as text instead of live HTML", () => {
+    const event = makeEvent({
+      title: "<img src=x onerror=alert(1)> Checkup",
+      description: "<script>alert(1)</script><b>Bring &amp; review</b>",
+      location: "<b>Clinic</b>",
+      uid: "<uid>",
+      sourceName: "<Shared calendar>",
+    });
+    const rendered = renderEventTask(event, {
+      ...settings,
+      includeDescriptions: true,
+      includeLocations: true,
+      taskTemplate: "{{title}} {{location}} {{details}} {{uid}} {{source}} {{dateMarker}} {{date}}",
+    });
+
+    expect(rendered).not.toContain("<img");
+    expect(rendered).not.toContain("<script");
+    expect(rendered).not.toContain("<b>");
+    expect(rendered).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(rendered).toContain("&lt;uid&gt;");
+    expect(rendered).toContain("&lt;Shared calendar&gt;");
+    expect(rendered).toContain("Bring &amp; review");
   });
 });
 
@@ -578,7 +627,7 @@ function ics(body: string): string {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Calendar Task Sync//Tests//EN",
+    "PRODID:-//Calendar Importer//Tests//EN",
     body.trim(),
     "END:VCALENDAR",
   ].join("\r\n");

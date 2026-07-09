@@ -76,8 +76,8 @@ export function buildTokens(event: NormalizedCalendarEvent, settings: CalendarTa
     endTime: !event.allDay && end && hasUsefulEnd(event, start, end) ? end.toFormat(settings.timeFormat || "HH:mm") : "",
     location,
     calendarName,
-    uid: event.uid,
-    source: event.sourceName,
+    uid: cleanInline(event.uid, settings),
+    source: cleanInline(event.sourceName, settings),
     dateMarker: settings.useScheduledDate ? SCHEDULED_MARKER : CALENDAR_MARKER,
     creator,
     created,
@@ -146,7 +146,7 @@ export function cleanDescription(description: string, settings: CalendarTaskSync
 }
 
 export function cleanInline(value: string, settings: Pick<CalendarTaskSyncSettings, "collapseWhitespace">): string {
-  const cleaned = decodeEntities(value).replace(/\r?\n/g, " ");
+  const cleaned = escapeMarkdownHtml(decodeEntities(value)).replace(/\r?\n/g, " ");
   return settings.collapseWhitespace ? cleaned.replace(/\s+/g, " ").trim() : cleaned.trim();
 }
 
@@ -190,7 +190,27 @@ function decodeEntities(value: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (match, code: string) => decodeNumericEntity(match, Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (match, code: string) => decodeNumericEntity(match, Number.parseInt(code, 16)));
+}
+
+function escapeMarkdownHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function decodeNumericEntity(fallback: string, codePoint: number): string {
+  if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+    return fallback;
+  }
+  try {
+    return String.fromCodePoint(codePoint);
+  } catch {
+    return fallback;
+  }
 }
 
 function normalizeTaskLine(value: string): string {

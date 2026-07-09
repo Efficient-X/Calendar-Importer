@@ -1,6 +1,7 @@
 import ICAL from "ical.js";
 import type { CalendarFeedSetting, CalendarTaskSyncSettings, NormalizedCalendarEvent, ParsedFeedResult, ParseWindow } from "./types";
 
+const MAX_RECURRENCE_ITERATIONS = 25000;
 const MAX_RECURRENCE_OCCURRENCES = 5000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -150,16 +151,24 @@ function expandRecurringEvent(
   try {
     const iterator = event.iterator();
     let next: ICAL.Time | null;
-    let count = 0;
+    let inspected = 0;
+    let included = 0;
 
     while ((next = iterator.next())) {
-      if (count++ > MAX_RECURRENCE_OCCURRENCES) {
-        errors.push(`Stopped expanding ${event.summary || event.uid}; too many recurrence instances.`);
+      if (inspected++ > MAX_RECURRENCE_ITERATIONS) {
+        errors.push(`Stopped expanding ${event.summary || event.uid}; recurrence history is too large for the configured sync window.`);
         break;
       }
 
       const nextStart = next.toJSDate();
       if (nextStart >= window.end) {
+        break;
+      }
+      if (nextStart < window.start) {
+        continue;
+      }
+      if (included++ >= MAX_RECURRENCE_OCCURRENCES) {
+        errors.push(`Stopped expanding ${event.summary || event.uid}; too many recurrence instances inside the sync window.`);
         break;
       }
 

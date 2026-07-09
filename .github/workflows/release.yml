@@ -58,7 +58,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
+          fail_on_unmatched_files: true
+          make_latest: true
+          overwrite_files: true
           files: |
             manifest.json
             main.js
             styles.css
+
+      - name: Verify release assets
+        shell: pwsh
+        run: ./scripts/verify-release.ps1 -Version "$env:GITHUB_REF_NAME"

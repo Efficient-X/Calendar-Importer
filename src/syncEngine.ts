@@ -1,4 +1,4 @@
-import { App, normalizePath, requestUrl, TFile } from "obsidian";
+import { App, normalizePath, requestUrl, TFile, TFolder } from "obsidian";
 import { DateTime } from "luxon";
 import { formatTemplatePath, getSyncWindow } from "./dateUtils";
 import { renderEventTask } from "./eventRenderer";
@@ -371,10 +371,23 @@ export class CalendarTaskSyncEngine {
 
   private async ensureFolder(path: string): Promise<void> {
     const folder = path.split("/").slice(0, -1).join("/");
-    if (!folder || await this.app.vault.adapter.exists(folder)) {
+    if (!folder) {
       return;
     }
-    await this.app.vault.adapter.mkdir(folder);
+
+    const parts = folder.split("/").filter(Boolean);
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      const existing = this.app.vault.getAbstractFileByPath(current);
+      if (existing instanceof TFolder) {
+        continue;
+      }
+      if (existing) {
+        throw new Error(`${current} exists but is not a folder.`);
+      }
+      await this.app.vault.createFolder(current);
+    }
   }
 
   private async createBackup(file: TFile, content: string): Promise<void> {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.8
+
+Red-team hardening release.
+
+- Reject unsupported feed URL schemes before Obsidian's network layer sees them, with friendlier errors for `file://`, `ftp://`, malformed links, and other non-calendar feed URLs.
+- Escape imported calendar text before rendering task lines so event titles, locations, UIDs, and source names cannot become live HTML in notes.
+- Let old daily recurring calendars reach the active sync window before hitting the recurrence safety cap.
+- Create nested destination folders through Obsidian's Vault API instead of the lower-level adapter.
+- Verify release assets automatically after GitHub publishes a release.
+- Update vulnerable development/test tooling.
+
 ## 1.0.7
 
 iCloud legacy event repair release.
