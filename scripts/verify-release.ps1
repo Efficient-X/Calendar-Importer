@@ -14,9 +14,36 @@ $pluginId = "calendar-importer"
 $requiredAssets = @("main.js", "manifest.json", "styles.css")
 $headers = @{ "User-Agent" = "Calendar-Importer-Release-Check" }
 
+function Invoke-WithRetry {
+  param(
+    [scriptblock]$Action,
+    [string]$Description,
+    [int]$Attempts = 6,
+    [int]$DelaySeconds = 5
+  )
+
+  $lastError = $null
+  for ($attempt = 1; $attempt -le $Attempts; $attempt += 1) {
+    try {
+      return & $Action
+    } catch {
+      $lastError = $_
+      if ($attempt -ge $Attempts) {
+        break
+      }
+      Write-Host "$Description not ready yet (attempt $attempt/$Attempts). Retrying in $DelaySeconds seconds..."
+      Start-Sleep -Seconds $DelaySeconds
+    }
+  }
+
+  throw $lastError
+}
+
 Write-Host "Checking Calendar Importer $Version..."
 
-$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$Version" -Headers $headers
+$release = Invoke-WithRetry -Description "Release $Version" -Action {
+  Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$Version" -Headers $headers
+}
 if ($release.draft -or $release.prerelease) {
   throw "Release $Version must be a published stable release."
 }
@@ -38,7 +65,9 @@ try {
   foreach ($asset in $requiredAssets) {
     $url = "https://github.com/$repo/releases/download/$Version/$asset"
     $target = Join-Path $tempDir $asset
-    Invoke-WebRequest -Uri $url -OutFile $target -Headers $headers
+    Invoke-WithRetry -Description "$asset download" -Action {
+      Invoke-WebRequest -Uri $url -OutFile $target -Headers $headers
+    } | Out-Null
     if ((Get-Item $target).Length -le 0) {
       throw "$asset downloaded as an empty file."
     }
@@ -71,7 +100,9 @@ try {
     }
   }
 
-  $plugins = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json" -Headers $headers
+  $plugins = Invoke-WithRetry -Description "Obsidian community plugin index" -Action {
+    Invoke-RestMethod -Uri "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json" -Headers $headers
+  }
   $entry = $plugins | Where-Object { $_.id -eq $pluginId } | Select-Object -First 1
   if (-not $entry) {
     throw "Plugin id '$pluginId' was not found in Obsidian community-plugins.json."

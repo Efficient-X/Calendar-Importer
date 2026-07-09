@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.9
+
+Red-team hardening follow-up.
+
+- Carry forward the 1.0.8 hardening fixes for feed URL validation, safe calendar text rendering, old recurrence handling, and nested folder creation.
+- Add retries to the release verifier so GitHub release asset propagation does not mark a healthy release as failed.
+
 ## 1.0.8
 
 Red-team hardening release.
