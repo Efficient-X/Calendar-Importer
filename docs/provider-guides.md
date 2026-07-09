@@ -51,6 +51,8 @@ Best link: public calendar link.
 4. Copy the link.
 5. Paste it into Calendar Importer.
 
+Apple may give you a `webcal://` link. Paste it in exactly as-is; Calendar Importer will fetch it over HTTPS behind the scenes.
+
 Public calendar links are read-only, but public means public-ish. Do not use this for calendars you would not want exposed through a link.
 
 Reference: [Apple: Share a calendar on iCloud.com](https://support.apple.com/guide/icloud/share-a-calendar-mm6b1a9479/icloud)

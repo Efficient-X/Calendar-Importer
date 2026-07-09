@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS } from "../src/defaults";
 import { eventMatchesFeedFilters, parseIcsFeed } from "../src/icsParser";
 import { renderEventTask } from "../src/eventRenderer";
 import { sortEvents } from "../src/eventSorter";
+import { normalizeFeedUrl } from "../src/security";
 import {
   buildManagedBlock,
   extractCompletedSectionTaskLines,
@@ -238,6 +239,21 @@ END:VEVENT
     expect(result.events[1].start.toISOString()).toBe("2026-07-15T09:00:00.000Z");
   });
 
+});
+
+describe("feed URL handling", () => {
+  it("converts webcal links to https links for fetching", () => {
+    expect(normalizeFeedUrl("webcal://p123-caldav.icloud.com/published/2/example?token=abc"))
+      .toBe("https://p123-caldav.icloud.com/published/2/example?token=abc");
+  });
+
+  it("converts secure webcal links to https links for fetching", () => {
+    expect(normalizeFeedUrl("webcals://example.com/calendar.ics")).toBe("https://example.com/calendar.ics");
+  });
+
+  it("leaves ordinary web links alone", () => {
+    expect(normalizeFeedUrl(" https://example.com/calendar.ics ")).toBe("https://example.com/calendar.ics");
+  });
 });
 
 describe("rendering and sorting", () => {

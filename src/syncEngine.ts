@@ -14,7 +14,7 @@ import {
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "./noteWriter";
-import { isLikelyIcs, maskUrl } from "./security";
+import { isLikelyIcs, maskUrl, normalizeFeedUrl } from "./security";
 import type {
   CalendarTaskSyncSettings,
   NormalizedCalendarEvent,
@@ -117,7 +117,7 @@ export class CalendarTaskSyncEngine {
 
     try {
       const response = await requestUrl({
-        url: feed.url,
+        url: normalizeFeedUrl(feed.url),
         method: "GET",
         headers: {
           Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1",

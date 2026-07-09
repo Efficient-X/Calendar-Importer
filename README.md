@@ -61,6 +61,8 @@ Common sources include:
 
 Private calendar links can expose your calendar, so treat them like passwords.
 
+Apple `webcal://` links are fine. Paste them in and Calendar Importer will do the boring protocol translation for you.
+
 Need the link? The [provider setup guide](docs/provider-guides.md) walks through Google Calendar, Outlook, iCloud, and Zoho without making you feel like you accidentally joined a networking course.
 
 ### Choose where tasks go

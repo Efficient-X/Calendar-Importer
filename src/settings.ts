@@ -165,7 +165,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
           text.inputEl.type = "password";
           protectTextInput(text.inputEl);
           text
-            .setPlaceholder("https://calendar.google.com/calendar/ical/...")
+            .setPlaceholder("https://... or webcal://...")
             .setValue(feed.url)
             .onChange(async (value) => {
               feed.url = value.trim();

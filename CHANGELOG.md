@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.6
+
+Apple webcal compatibility release.
+
+- Accept `webcal://` and `webcals://` calendar feed links by fetching them over HTTPS.
+- Update the feed URL placeholder and provider docs so iCloud users can paste Apple subscription links directly.
+- Add tests for webcal feed URL handling.
+
 ## 1.0.5
 
 Settings simplification release.

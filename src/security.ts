@@ -8,6 +8,14 @@ export function maskUrl(url: string): string {
   }
 }
 
+export function normalizeFeedUrl(url: string): string {
+  const trimmed = url.trim();
+  if (/^webcals?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^webcals?:\/\//i, "https://");
+  }
+  return trimmed;
+}
+
 export function isLikelyIcs(content: string): boolean {
   return /BEGIN:VCALENDAR/i.test(content) && /END:VCALENDAR/i.test(content);
 }
