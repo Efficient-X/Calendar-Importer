@@ -15,6 +15,8 @@ Once Calendar Importer is available in Obsidian's Community Plugins:
 
 That is the easy path. Calendar in, tasks out.
 
+The same install path is used on desktop, iPhone, iPad, and Android. If a mobile device sees an update but will not install it, check that the device has internet access and that the GitHub release for that version has downloadable `manifest.json`, `main.js`, and `styles.css` assets.
+
 If you need help finding your calendar link, use the [provider setup guide](provider-guides.md).
 
 If you want daily note views, grab a snippet from [daily note recipes](daily-note-recipes.md).

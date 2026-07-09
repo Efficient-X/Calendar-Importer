@@ -7,8 +7,30 @@ Release checklist:
 3. Run `pnpm run build`.
 4. Push a semver tag such as `1.0.0`.
 5. Confirm the GitHub release contains `manifest.json`, `main.js`, and `styles.css`.
+6. Confirm the release has a useful GitHub description.
+7. Run the mobile/download verification script:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\verify-release.ps1" -Version "1.0.0"
+```
 
 The release workflow creates the GitHub release from the tag.
+
+## Mobile Release Checks
+
+Calendar Importer is intended to work on desktop, iPhone, iPad, and Android.
+
+Mobile installs and updates require all of these to be true:
+
+- The GitHub release tag exactly matches `manifest.json` version.
+- The release is published, not draft or prerelease.
+- The release has downloadable `manifest.json`, `main.js`, and `styles.css` assets.
+- The released `manifest.json` has `"isDesktopOnly": false`.
+- The released `manifest.json` has plugin id `calendar-importer`.
+- The Obsidian community plugin index points to `Efficient-X/Calendar-Importer`.
+- `main.js` does not use desktop-only APIs such as Electron, `fs`, `path`, or child processes.
+
+If mobile shows an update but refuses to install it, check the release assets first. Obsidian can discover the version before the matching GitHub release assets are actually downloadable. Sneaky little trap.
 
 ## Community Plugin Submission
 
