@@ -239,6 +239,48 @@ END:VEVENT
     expect(result.events[1].start.toISOString()).toBe("2026-07-15T09:00:00.000Z");
   });
 
+  it("repairs malformed Apple address lines before applying the date window", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:old-icloud-address
+SUMMARY:Old appointment
+LOCATION:Shop 1
+Willoughby NSW 2068
+DTSTART:20160101T090000Z
+DTEND:20160101T093000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:current-event
+SUMMARY:Current appointment
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), { ...feed, name: "Stephanie - iPhone" }, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].uid).toBe("current-event");
+  });
+
+  it("keeps repaired malformed Apple address text on in-window events", () => {
+    const locationSettings = { ...settings, includeLocations: true };
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:icloud-address
+SUMMARY:Appointment
+LOCATION:Shop 1
+Willoughby NSW 2068
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), { ...feed, name: "Stephanie - iPhone" }, locationSettings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBe("Shop 1 Willoughby NSW 2068");
+    expect(renderEventTask(result.events[0], locationSettings)).toContain("Shop 1 Willoughby NSW 2068");
+  });
+
 });
 
 describe("feed URL handling", () => {

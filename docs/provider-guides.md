@@ -83,6 +83,8 @@ Public calendar links are read-only, but public means public-ish. Do not use thi
 
 Private iCloud sharing is not the same thing. If the calendar requires an Apple Account invitation, Calendar Importer cannot sign in for it.
 
+iCloud can include very old events in the public feed, even when Calendar Importer is only syncing a small date window. Calendar Importer repairs common malformed old text lines before parsing so one ancient dodgy address does not ruin the party.
+
 Reference: [Apple: Share a calendar on iCloud.com](https://support.apple.com/guide/icloud/share-a-calendar-mm6b1a9479/icloud)
 
 ## Zoho Calendar

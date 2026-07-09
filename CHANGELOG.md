@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.7
+
+iCloud legacy event repair release.
+
+- Repair malformed Apple/iCloud text lines where an address or description line appears without the required iCalendar token separator.
+- Prevent one old malformed event, including events outside the configured date window, from blocking the whole feed parse.
+- Add regression tests for a 2016 iCloud address line breaking an otherwise valid current sync.
+- Populate future GitHub release descriptions automatically from the matching changelog section.
+
 ## 1.0.6
 
 Apple webcal compatibility release.

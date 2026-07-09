@@ -1,6 +1,6 @@
 {
   "name": "calendar-importer",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Bring external calendar events into your task notes without retyping them.",
   "main": "main.js",
   "scripts": {

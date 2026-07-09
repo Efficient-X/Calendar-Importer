@@ -42,9 +42,22 @@ jobs:
             main.js
             styles.css
 
+      - name: Build release notes
+        shell: bash
+        run: |
+          awk -v version="$GITHUB_REF_NAME" '
+            $0 == "## " version { capture = 1; next }
+            capture && /^## / { exit }
+            capture { print }
+          ' CHANGELOG.md | sed '/./,$!d' > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            printf "Calendar Importer %s\n" "$GITHUB_REF_NAME" > RELEASE_NOTES.md
+          fi
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           files: |
             manifest.json
             main.js

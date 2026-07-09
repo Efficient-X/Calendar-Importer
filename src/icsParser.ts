@@ -19,7 +19,7 @@ export function parseIcsFeed(
   const events: NormalizedCalendarEvent[] = [];
 
   try {
-    const jcal: unknown = ICAL.parse(icsText);
+    const jcal: unknown = ICAL.parse(repairMalformedContentLines(icsText));
     if (!Array.isArray(jcal)) {
       throw new Error("Parsed calendar did not contain a valid jCal component.");
     }
@@ -75,6 +75,27 @@ export function eventMatchesFeedFilters(event: NormalizedCalendarEvent, source: 
   return !excludeKeywords.some((keyword) => haystack.includes(keyword));
 }
 
+export function repairMalformedContentLines(icsText: string): string {
+  const lines = icsText.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const repaired: string[] = [];
+
+  for (const line of lines) {
+    if (isContentLine(line) || isContinuationLine(line) || line.trim() === "") {
+      repaired.push(line);
+      continue;
+    }
+
+    if (repaired.length === 0 || !canAppendMalformedLine(repaired[repaired.length - 1])) {
+      repaired.push(line);
+      continue;
+    }
+
+    repaired[repaired.length - 1] = `${repaired[repaired.length - 1]} ${line.trim()}`;
+  }
+
+  return repaired.join("\r\n");
+}
+
 function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
   const grouped = new Map<string, EventGroup>();
 
@@ -91,6 +112,30 @@ function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
   }
 
   return grouped;
+}
+
+function isContentLine(line: string): boolean {
+  return /^[A-Za-z0-9-]+(?:;[^:]*)?:/.test(line);
+}
+
+function isContinuationLine(line: string): boolean {
+  return /^[ \t]/.test(line);
+}
+
+function canAppendMalformedLine(line: string): boolean {
+  const property = line.match(/^([A-Za-z0-9-]+)/)?.[1]?.toUpperCase() ?? "";
+  return [
+    "ATTACH",
+    "CATEGORIES",
+    "COMMENT",
+    "CONTACT",
+    "DESCRIPTION",
+    "LOCATION",
+    "RESOURCES",
+    "SUMMARY",
+    "X-APPLE-STRUCTURED-LOCATION",
+    "X-ALT-DESC",
+  ].includes(property);
 }
 
 function expandRecurringEvent(
