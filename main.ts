@@ -5,12 +5,7 @@ import { CalendarTaskSyncEngine } from "./src/syncEngine";
 import type { CalendarFeedSetting, CalendarTaskSyncSettings, SyncResult } from "./src/types";
 
 const PLUGIN_NAME = "Calendar Importer";
-const LEGACY_DATA_PATHS = [
-  ".obsidian/plugins/ical-events-to-tasks/data.json",
-  ".obsidian/plugins/calendar-task-sync/data.json",
-  ".obsidian/ical-events-to-tasks.settings-memory.json",
-  ".obsidian/calendar-task-sync.settings-memory.json",
-];
+const LEGACY_PLUGIN_IDS = ["ical-events-to-tasks", "calendar-task-sync"];
 
 export default class CalendarTaskSyncPlugin extends Plugin {
   settings: CalendarTaskSyncSettings = DEFAULT_SETTINGS;
@@ -50,7 +45,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
   }
 
   private async loadLegacySettings(): Promise<Partial<CalendarTaskSyncSettings>> {
-    for (const legacyPath of LEGACY_DATA_PATHS) {
+    for (const legacyPath of this.getLegacyDataPaths()) {
       try {
         const path = normalizePath(legacyPath);
         if (!(await this.app.vault.adapter.exists(path))) {
@@ -70,6 +65,14 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
     return {};
   }
+
+  private getLegacyDataPaths(): string[] {
+    return LEGACY_PLUGIN_IDS.flatMap((legacyPluginId) => [
+      `${this.app.vault.configDir}/plugins/${legacyPluginId}/data.json`,
+      `${this.app.vault.configDir}/${legacyPluginId}.settings-memory.json`,
+    ]);
+  }
+
   async saveSettings(settings: CalendarTaskSyncSettings = this.settings): Promise<void> {
     this.settings = settings;
     await this.saveData(this.settings);

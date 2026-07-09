@@ -16,11 +16,13 @@
   <a href="https://buymeacoffee.com/efficientx/e/555301">Support this plugin directly</a>
 </p>
 
-Bring your calendars into your task notes without retyping everything by hand.
+Bring external calendar events into your task notes without retyping them.
 
-Calendar Importer turns Google Calendar, Outlook, iCloud, Zoho, and other calendar feeds into clean markdown tasks that work nicely with the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks).
+Calendar Importer turns Google Calendar, Outlook, iCloud, Zoho, and other iCal/ICS calendar feeds into clean markdown tasks.
 
-Shared calendar with someone who has not yet found the warm glow of Obsidian? No problem. They can keep adding events in their calendar app, and Calendar Importer quietly brings those dates into your vault as tasks. Less double entry, more living in your notes. How good.
+Using a shared calendar with someone who has not yet found the warm glow of Obsidian? Let them keep adding events in their calendar app while Calendar Importer quietly brings those dates into your vault. Boom!
+
+Less double entry, and more Obsidian time for you. How good.
 
 ```markdown
 - [ ] Haircut - Friday - 16:00-16:30 2026-08-07 #calendar

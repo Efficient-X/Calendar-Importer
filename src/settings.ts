@@ -730,7 +730,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
     setting.addDropdown((dropdown) => {
       for (const colour of FEED_COLOURS) {
-        dropdown.addOption(colour.value, colour.value ? `■ ${colour.name}` : colour.name);
+        dropdown.addOption(colour.value, colour.name);
       }
       const current = normalizeFeedColour(feed.color);
       updateSelectedSwatch(current);

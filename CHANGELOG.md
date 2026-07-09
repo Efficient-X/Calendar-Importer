@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+Review cleanup release.
+
+- Use Obsidian's configured vault config folder when checking for legacy local settings.
+- Remove the square prefix from colour dropdown options while keeping the visual colour palette.
+- Align README and metadata copy with the Community Plugins submission wording.
+
 ## 1.0.1
 
 Copy polish release.

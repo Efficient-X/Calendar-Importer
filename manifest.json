@@ -1,9 +1,9 @@
 {
   "id": "calendar-importer",
   "name": "Calendar Importer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "1.13.0",
-  "description": "Bring shared calendars into your task notes without retyping them.",
+  "description": "Bring external calendar events into your task notes without retyping them.",
   "author": "Efficient X Group",
   "authorUrl": "https://github.com/Efficient-X",
   "fundingUrl": "https://buymeacoffee.com/efficientx",

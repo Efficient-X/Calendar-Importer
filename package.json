@@ -1,7 +1,7 @@
 {
   "name": "calendar-importer",
-  "version": "1.0.1",
-  "description": "Bring shared calendars into your task notes without retyping them.",
+  "version": "1.0.2",
+  "description": "Bring external calendar events into your task notes without retyping them.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
