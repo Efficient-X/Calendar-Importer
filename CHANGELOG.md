@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+Settings compatibility release.
+
+- Keep destructive button styling compatible with older Obsidian installs so the full settings page can render.
+
 ## 1.0.2
 
 Review cleanup release.

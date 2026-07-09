@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, type ButtonComponent } from "obsidian";
 import type CalendarTaskSyncPlugin from "../main";
 import { DEFAULT_TASK_TEMPLATE } from "./defaults";
 import { buildTaskPreview } from "./eventRenderer";
@@ -204,8 +204,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
       new Setting(details)
         .setName("Remove feed")
-        .addButton((button) => button
-          .setDestructive()
+        .addButton((button) => styleDestructiveButton(button)
           .setButtonText("Remove")
           .onClick(() => this.runSafely(async () => {
             this.plugin.settings.feeds = this.plugin.settings.feeds.filter((candidate) => candidate.id !== feed.id);
@@ -675,8 +674,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Clear sync cache")
-      .addButton((button) => button
-        .setDestructive()
+      .addButton((button) => styleDestructiveButton(button)
         .setButtonText("Clear")
         .onClick(() => this.runSafely(() => this.plugin.clearSyncCache())));
   }
@@ -784,6 +782,14 @@ function clampInteger(value: string, fallback: number, min: number, max: number)
 function protectTextInput(input: HTMLInputElement | HTMLTextAreaElement): void {
   input.addEventListener("keydown", (event) => event.stopPropagation());
   input.addEventListener("keyup", (event) => event.stopPropagation());
+}
+
+function styleDestructiveButton(button: ButtonComponent): ButtonComponent {
+  if ("setDestructive" in button && typeof button.setDestructive === "function") {
+    return button.setDestructive();
+  }
+  button.buttonEl.addClass("mod-warning");
+  return button;
 }
 
 function normalizeFeedColour(value: string | undefined): string {
