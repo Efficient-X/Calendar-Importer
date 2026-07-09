@@ -39,8 +39,7 @@ Once Calendar Importer is available in Community Plugins:
 3. Enable it.
 4. Open `Settings > Calendar Importer`.
 5. Paste a calendar feed link.
-6. Click `Preview`.
-7. Click `Sync now`.
+6. Click `Sync now`.
 
 That is the whole dance.
 
@@ -111,7 +110,6 @@ Want more ready-to-paste snippets? See [daily note recipes](docs/daily-note-reci
 
 - Imports one or more calendar feeds into Obsidian.
 - Writes events as markdown tasks.
-- Lets you preview before changing notes.
 - Keeps completed imported tasks completed.
 - Moves completed calendar tasks into a completed section if you want.
 - Handles recurring events, all-day events, and multi-day events.

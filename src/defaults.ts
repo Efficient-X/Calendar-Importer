@@ -2,9 +2,15 @@ import type { CalendarTaskSyncSettings } from "./types";
 
 export const DEFAULT_TASK_TEMPLATE = "{{title}} - {{weekday}} - {{time}}{{preDateDetails}} {{dateMarker}} {{date}}{{postDateDetails}}";
 
+const LEGACY_CALENDAR_MARKER_MOJIBAKE = String.fromCodePoint(
+  0x00c3, 0x0192, 0x00c2, 0x00b0, 0x00c3, 0x2026, 0x00c2, 0x00b8,
+  0x00c3, 0x00a2, 0x00e2, 0x201a, 0x00ac, 0x00c5, 0x201c,
+  0x00c3, 0x00a2, 0x00e2, 0x201a, 0x00ac, 0x00c2, 0x00a6,
+);
+
 export const LEGACY_TASK_TEMPLATES = [
-  "{{title}}{{detailsSeparator}}{{details}} - {{weekday}} - {{time}} \u{1F4C5} {{date}}",
-  "{{title}}{{detailsSeparator}}{{details}} - {{weekday}} - {{time}} Ã°Å¸â€œâ€¦ {{date}}",
+  `{{title}}{{detailsSeparator}}{{details}} - {{weekday}} - {{time}} ${String.fromCodePoint(0x1f4c5)} {{date}}`,
+  `{{title}}{{detailsSeparator}}{{details}} - {{weekday}} - {{time}} ${LEGACY_CALENDAR_MARKER_MOJIBAKE} {{date}}`,
 ];
 
 export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
@@ -30,7 +36,7 @@ export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
   taskTemplate: DEFAULT_TASK_TEMPLATE,
   detailPlacement: "before-date",
   showManagedBlockMarkers: false,
-  completedTaskMode: "move-to-completed-section",
+  completedTaskMode: "preserve-in-place",
   completedHeading: "## Completed Calendar Tasks",
   completedRetentionDays: 0,
   includeColorSwatch: true,

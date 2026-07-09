@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.5
+
+Settings simplification release.
+
+- Remove the Preview next sync button and command.
+- Remove Preview from the first-run checklist and user docs.
+- Replace fragile emoji text in the scheduled-date setting with plain wording.
+- Repair legacy symbol cleanup with Unicode code points so source encoding cannot mangle the markers.
+
 ## 1.0.4
 
 Onboarding and reach release.

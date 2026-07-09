@@ -68,13 +68,11 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     });
 
     const hasFeed = this.plugin.settings.feeds.some((feed) => feed.url.trim());
-    const hasPreview = Boolean(this.plugin.settings.lastPreview);
     const hasSynced = Boolean(this.plugin.settings.lastSyncTime);
     const hasDestination = Boolean(this.plugin.settings.calendarNotePath.trim());
 
     this.renderChecklistItem(checklist, hasFeed, "Add a calendar feed link");
-    this.renderChecklistItem(checklist, hasPreview, "Run Preview so you can see the goods before anything changes");
-    this.renderChecklistItem(checklist, hasSynced, "Run Sync now when the preview looks right");
+    this.renderChecklistItem(checklist, hasSynced, "Run Sync now and let the calendar conveyor belt begin");
     this.renderChecklistItem(checklist, hasDestination, `Open ${this.plugin.settings.calendarNotePath || "your calendar note"} and admire the lack of double entry`);
   }
 
@@ -107,7 +105,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     });
     status.createEl("div", {
       cls: "calendar-importer-status-body",
-      text: this.plugin.settings.lastSyncResult || "Add a calendar feed, then run a preview or sync.",
+      text: this.plugin.settings.lastSyncResult || "Add a calendar feed, then run a sync.",
     });
     status.createEl("div", {
       cls: "calendar-importer-status-meta",
@@ -126,12 +124,6 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         .setButtonText("Sync now")
         .onClick(() => this.runSafely(() => this.plugin.syncNow("settings-button"))));
 
-    new Setting(containerEl)
-      .setName("Preview next sync")
-      .setDesc("Shows what the next sync would do without changing your notes.")
-      .addButton((button) => button
-        .setButtonText("Preview")
-        .onClick(() => this.runSafely(() => this.plugin.previewNextSync())));
   }
 
   private renderFeeds(containerEl: HTMLElement): void {
@@ -456,7 +448,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Use scheduled date marker")
-      .setDesc("Use Tasks scheduled-date syntax (â³) instead of due-date syntax (📅). Most users should keep the default due-date marker.")
+      .setDesc("Use the Tasks scheduled-date marker instead of the due-date marker. Most users should keep the default due-date marker.")
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.useScheduledDate)
         .onChange(async (value) => {
@@ -700,16 +692,6 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName("Dry-run preview")
-      .setDesc("The Preview command generates output without writing notes.")
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.dryRunPreview)
-        .onChange(async (value) => {
-          this.plugin.settings.dryRunPreview = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
       .setName("Clear sync cache")
       .addButton((button) => styleDestructiveButton(button)
         .setButtonText("Clear")
@@ -734,11 +716,6 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     if (this.plugin.settings.lastError) {
       new Setting(containerEl).setName("Last errors").setHeading();
       containerEl.createEl("pre", { text: this.plugin.settings.lastError });
-    }
-
-    if (this.plugin.settings.lastPreview) {
-      new Setting(containerEl).setName("Last preview").setHeading();
-      containerEl.createEl("pre", { text: this.plugin.settings.lastPreview });
     }
 
     new Setting(containerEl)

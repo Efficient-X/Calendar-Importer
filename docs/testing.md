@@ -2,7 +2,7 @@
 
 Here is the quick test lap:
 
-- Add one calendar feed and run `Preview`.
+- Add one calendar feed and run `Sync now`.
 - Run `Sync now` and confirm the calendar note is created.
 - Complete one imported task, sync again, and confirm it stays completed.
 - Try a recurring event.

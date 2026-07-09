@@ -75,4 +75,4 @@ Reference: [Zoho: Share calendars](https://help.zoho.com/portal/en/kb/calendar/s
 
 If your calendar app gives you a link ending in `.ics`, starting with `webcal://`, or described as an iCalendar feed, try it.
 
-If it previews correctly, you are in business. If it does not, the feed may require a login, block outside apps, or only export a one-time file instead of a live subscription.
+If it syncs correctly, you are in business. If it does not, the feed may require a login, block outside apps, or only export a one-time file instead of a live subscription.

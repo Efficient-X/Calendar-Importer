@@ -3,7 +3,6 @@
 Calendar Importer adds a few commands to Obsidian:
 
 - `Calendar Importer: Sync now`
-- `Calendar Importer: Preview next sync`
 - `Calendar Importer: Clear sync cache`
 - `Calendar Importer: Rebuild calendar note`
 

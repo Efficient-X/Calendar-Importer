@@ -11,7 +11,7 @@ Once Calendar Importer is available in Obsidian's Community Plugins:
 5. Enable it.
 6. Open `Settings > Calendar Importer`.
 7. Add a calendar feed.
-8. Click `Preview`, then `Sync now`.
+8. Click `Sync now`.
 
 That is the easy path. Calendar in, tasks out.
 

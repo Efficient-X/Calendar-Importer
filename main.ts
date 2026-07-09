@@ -123,16 +123,6 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     return result;
   }
 
-  async previewNextSync(): Promise<void> {
-    const result = await this.engine.sync({ dryRun: true, trigger: "preview" });
-    this.settings.lastSyncTime = new Date().toISOString();
-    this.settings.lastSyncResult = result.message;
-    this.settings.lastPreview = result.preview ?? "";
-    this.settings.lastError = result.errors.join("\n");
-    await this.saveData(this.settings);
-    new Notice(result.success ? `${PLUGIN_NAME}: preview generated in settings.` : `${PLUGIN_NAME}: preview failed.`);
-  }
-
   async openCalendarNote(): Promise<void> {
     const file = await this.engine.ensureCalendarNoteForToday();
     if (file instanceof TFile) {
@@ -151,12 +141,6 @@ export default class CalendarTaskSyncPlugin extends Plugin {
       id: "sync-now",
       name: "Sync now",
       callback: () => this.runSafely(() => this.syncNow("manual")),
-    });
-
-    this.addCommand({
-      id: "preview-next-sync",
-      name: "Preview next sync",
-      callback: () => this.runSafely(() => this.previewNextSync()),
     });
 
     this.addCommand({
@@ -227,8 +211,8 @@ function repairSymbols(value: string): string {
   const doneMojibake = String.fromCodePoint(0x00e2, 0x0153, 0x2026);
   const apostropheMojibake = String.fromCodePoint(0x00e2, 0x20ac, 0x2122);
   return value
-    .replace(new RegExp(calendarMojibake, "g"), "📅")
-    .replace(new RegExp(scheduledMojibake, "g"), "â³")
-    .replace(new RegExp(doneMojibake, "g"), "âœ…")
+    .replace(new RegExp(calendarMojibake, "g"), String.fromCodePoint(0x1f4c5))
+    .replace(new RegExp(scheduledMojibake, "g"), String.fromCodePoint(0x23f3))
+    .replace(new RegExp(doneMojibake, "g"), String.fromCodePoint(0x2705))
     .replace(new RegExp(apostropheMojibake, "g"), "'");
 }

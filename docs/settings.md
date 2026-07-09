@@ -4,7 +4,7 @@ Most people only need the Basic area:
 
 1. Add a calendar feed.
 2. Choose the note where imported tasks should live.
-3. Click `Preview`, then `Sync now`.
+3. Click `Sync now`.
 
 Advanced controls are folded away until you want more control. They are there for people who enjoy knobs, dials, and reading the manual on purpose.
 
@@ -13,17 +13,14 @@ Advanced controls are folded away until you want more control. They are there fo
 The settings page shows a quick checklist:
 
 1. Add a calendar feed link.
-2. Run `Preview`.
-3. Run `Sync now`.
-4. Open your calendar note.
+2. Run `Sync now`.
+3. Open your calendar note.
 
 Once all four are done, you are basically operating a tiny calendar conveyor belt. Nice.
 
 ## Quick Actions
 
 `Sync now` updates your calendar note immediately.
-
-`Preview next sync` shows what would change before anything is written.
 
 Handy tip: bind `Calendar Importer: Sync now` to a hotkey if you use it often.
 
