@@ -149,11 +149,9 @@ If Calendar Importer saves you a few clicks, a coffee is always appreciated:
 
 Built by Efficient X Group.
 
-<p align="right">
+<p align="right" style="margin: 0 0 8px 0;">
   <img src="assets/efx-logo.png" alt="Efficient X Group" width="96">
 </p>
-
-<br clear="both">
 
 ## License
 
