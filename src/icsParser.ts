@@ -160,6 +160,7 @@ function normalizeCalendarComponents(
       try {
         for (const exception of group.exceptions) {
           try {
+            hydrateCancelledException(exception, master);
             master.relateException(exception);
           } catch (error) {
             errors.push(`Could not relate recurrence exception for ${describeEvent(exception)} from ${source.name}: ${errorMessage(error)}`);
@@ -308,6 +309,22 @@ function buildIsolatedCalendarText(contextLines: string[], eventBlock: string[])
 function extractCalendarTimezone(contextLines: string[]): string | undefined {
   const timezoneLine = contextLines.find((line) => /^X-WR-TIMEZONE(?:;[^:]*)?:/i.test(line));
   return normalizeTimezoneId(timezoneLine ? timezoneLine.slice(timezoneLine.indexOf(":") + 1) : "");
+}
+
+function hydrateCancelledException(exception: ICAL.Event, master: ICAL.Event): void {
+  if (
+    upper(exception.component.getFirstPropertyValue("status")) !== "CANCELLED"
+    || !exception.recurrenceId
+    || exception.startDate
+  ) {
+    return;
+  }
+
+  const start = exception.recurrenceId.clone();
+  const end = start.clone();
+  end.addDuration(master.duration);
+  exception.startDate = start;
+  exception.endDate = end;
 }
 
 function getContentLineProperty(line: string): string {

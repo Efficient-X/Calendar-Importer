@@ -18,7 +18,7 @@
 
 Bring external calendar events into your task notes without retyping them.
 
-Calendar Importer turns readable Google Calendar, Outlook, iCloud, Zoho, and other iCal/ICS calendar feeds into clean markdown tasks.
+Calendar Importer is a lightweight background plugin that turns Google Calendar, Outlook, iCloud, Zoho, and other iCal/ICS calendar feeds into clean markdown tasks.
 
 Using a shared calendar with someone who has not yet found the warm glow of Obsidian? Let them keep adding events in their calendar app while Calendar Importer quietly brings those dates into your vault. Boom!
 
@@ -41,9 +41,7 @@ Once Calendar Importer is available in Community Plugins:
 5. Paste a calendar feed link.
 6. Click `Sync now`.
 
-That is the whole dance.
-
-If the plugin is not yet visible in Community Plugins, see [installation and testing](docs/installation.md).
+That's the whole dance.
 
 ## Getting Started
 
@@ -65,7 +63,7 @@ Apple `webcal://` links are fine. Paste them in and Calendar Importer will do th
 
 The tiny compatibility rule: if the link opens to real iCalendar text, Calendar Importer can work with it. If the link needs a login page, OAuth, CalDAV account setup, cookies, or an HTML calendar page, that is a different animal.
 
-Need the link? The [provider setup guide](docs/provider-guides.md) walks through Google Calendar, Outlook, iCloud, and Zoho without making you feel like you accidentally joined a networking course.
+Need the link? The [provider setup guide](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/provider-guides.md) walks through Google Calendar, Outlook, iCloud, and Zoho without making you feel like you accidentally joined a networking course.
 
 ### Choose where tasks go
 
@@ -99,7 +97,7 @@ A more focused daily note setup:
 > ```
 ````
 
-Want more ready-to-paste snippets? See [daily note recipes](docs/daily-note-recipes.md).
+Want more ready-to-paste snippets? See [daily note recipes](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/daily-note-recipes.md).
 
 ````markdown
 > [!caution]- Tasks due within 3 days
@@ -138,20 +136,20 @@ It also works better for shared calendars. If someone else adds, moves, or cance
 
 Calendar Importer helps with calendar sync, Google Calendar to Obsidian workflows, Outlook calendar import, iCloud calendar import, ICS to markdown, daily notes, dashboards, school calendars, family calendars, bills, appointments, travel dates, and recurring reminders.
 
-Or, said less like a search engine: it gets your calendar commitments into the place you actually plan your day.
+Or, when said less like a search engine: it gets your calendar commitments into the place you actually plan your day.
 
 ## Documentation
 
-- [Installation and testing](docs/installation.md)
-- [Provider setup guide](docs/provider-guides.md)
-- [Daily note recipes](docs/daily-note-recipes.md)
-- [Settings overview](docs/settings.md)
-- [Commands](docs/commands.md)
-- [FAQ](docs/faq.md)
-- [Privacy and feed URL safety](docs/privacy.md)
-- [Tester checklist](docs/testing.md)
-- [Development](docs/development.md)
-- [Release notes for maintainers](docs/release.md)
+- [Installation and testing](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/installation.md)
+- [Provider setup guide](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/provider-guides.md)
+- [Daily note recipes](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/daily-note-recipes.md)
+- [Settings overview](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/settings.md)
+- [Commands](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/commands.md)
+- [FAQ](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/faq.md)
+- [Privacy and feed URL safety](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/privacy.md)
+- [Tester checklist](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/testing.md)
+- [Development](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/development.md)
+- [Release notes for maintainers](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/release.md)
 
 ## Support
 

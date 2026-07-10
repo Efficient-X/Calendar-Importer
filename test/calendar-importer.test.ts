@@ -166,6 +166,79 @@ END:VEVENT
     expect(result.events[0].start.toISOString()).toBe("2026-07-01T09:00:00.000Z");
   });
 
+  it("excludes recurring instances listed in EXDATE", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:exdate-recur
+SUMMARY:Daily with skip
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20260717T090000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((event) => event.start.toISOString())).toEqual([
+      "2026-07-16T09:00:00.000Z",
+      "2026-07-18T09:00:00.000Z",
+    ]);
+  });
+
+  it("skips cancelled recurring instances even when the cancellation has no DTSTART", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:cancelled-instance-recur
+SUMMARY:Daily with cancellation
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+RRULE:FREQ=DAILY;COUNT=3
+END:VEVENT
+BEGIN:VEVENT
+UID:cancelled-instance-recur
+RECURRENCE-ID:20260717T090000Z
+STATUS:CANCELLED
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((event) => event.start.toISOString())).toEqual([
+      "2026-07-16T09:00:00.000Z",
+      "2026-07-18T09:00:00.000Z",
+    ]);
+  });
+
+  it("applies this-and-future recurrence changes", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:range-this-and-future
+SUMMARY:Daily meeting
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+RRULE:FREQ=DAILY;COUNT=4
+END:VEVENT
+BEGIN:VEVENT
+UID:range-this-and-future
+SUMMARY:Daily meeting moved
+RECURRENCE-ID;RANGE=THISANDFUTURE:20260718T090000Z
+DTSTART:20260718T110000Z
+DTEND:20260718T120000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((event) => event.start.toISOString())).toEqual([
+      "2026-07-16T09:00:00.000Z",
+      "2026-07-17T09:00:00.000Z",
+      "2026-07-18T11:00:00.000Z",
+      "2026-07-19T11:00:00.000Z",
+    ]);
+    expect(result.events.slice(2).map((event) => event.title)).toEqual([
+      "Daily meeting moved",
+      "Daily meeting moved",
+    ]);
+  });
+
   it("filters cancelled events by default", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT

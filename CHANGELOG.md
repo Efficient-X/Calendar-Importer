@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.14
+
+Recurring exception hardening and README polish.
+
+- Skip cancelled recurring instances even when provider cancellation exceptions omit `DTSTART` and `DTEND`.
+- Add regression tests for `EXDATE`, cancelled recurring exceptions, and `RANGE=THISANDFUTURE` recurrence changes.
+- Update the README to describe Calendar Importer as a lightweight background plugin.
+- Remove the obsolete testing-install note from Community Plugins instructions.
+- Use Community-Plugins-safe absolute documentation links in the README.
+
 ## 1.0.13
 
 Bad-event isolation release.
