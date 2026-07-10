@@ -16,6 +16,13 @@ export interface CompletedNormalizationResult {
   changed: boolean;
 }
 
+interface HeadingRange {
+  headingStart: number;
+  headingEnd: number;
+  bodyStart: number;
+  sectionEnd: number;
+}
+
 const EVENT_MARKER_PREFIX = "<!-- calendar-importer:event ";
 
 export function buildManagedBlock(items: ManagedTaskLine[], settings: CalendarTaskSyncSettings): string {
@@ -38,10 +45,15 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
     return { content, changed: content !== noteContent };
   }
 
-  const headingRange = findHeadingRange(noteContent, settings.heading);
-  if (headingRange) {
-    const suffix = noteContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "");
-    const content = `${noteContent.slice(0, headingRange.bodyStart)}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
+  const headingRanges = findHeadingRanges(noteContent, settings.heading);
+  if (headingRanges.length > 0) {
+    const deduplicatedContent = removeHeadingRanges(noteContent, headingRanges.slice(1));
+    const headingRange = findHeadingRange(deduplicatedContent, settings.heading);
+    if (!headingRange) {
+      throw new Error("Could not locate the calendar heading after removing duplicates.");
+    }
+    const suffix = deduplicatedContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "");
+    const content = `${deduplicatedContent.slice(0, headingRange.bodyStart)}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
     return { content, changed: content !== noteContent };
   }
 
@@ -55,7 +67,7 @@ export function extractManagedBlock(noteContent: string, settings: CalendarTaskS
   const startIndex = noteContent.indexOf(settings.startMarker);
   const endIndex = noteContent.indexOf(settings.endMarker);
   if (startIndex < 0 || endIndex <= startIndex) {
-    return extractSectionBody(noteContent, settings.heading);
+    return extractSectionBodies(noteContent, settings.heading).join("\n");
   }
   return noteContent.slice(startIndex, endIndex + settings.endMarker.length);
 }
@@ -67,7 +79,7 @@ export function extractCompletionStates(noteContent: string, settings: CalendarT
 
 export function extractCompletedTaskLines(noteContent: string, settings: CalendarTaskSyncSettings): Record<string, string> {
   const block = extractManagedBlock(noteContent, settings);
-  const completedSection = extractSectionBody(noteContent, settings.completedHeading);
+  const completedSection = extractSectionBodies(noteContent, settings.completedHeading).join("\n");
   return {
     ...extractCompletedTaskLinesFromText(block),
     ...extractCompletedTaskLinesFromText(completedSection),
@@ -75,7 +87,8 @@ export function extractCompletedTaskLines(noteContent: string, settings: Calenda
 }
 
 export function extractCompletedSectionTaskLines(noteContent: string, settings: CalendarTaskSyncSettings): string[] {
-  return extractSectionBody(noteContent, settings.completedHeading)
+  return extractSectionBodies(noteContent, settings.completedHeading)
+    .join("\n")
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter(isCompletedTaskLine);
@@ -112,25 +125,11 @@ export function moveCompletedTasksToCompletedSection(noteContent: string, settin
 export function replaceCompletedTaskSection(noteContent: string, completedLines: string[], settings: CalendarTaskSyncSettings): ReplaceResult {
   const uniqueLines = prepareCompletedTaskLines(completedLines, settings);
   const newline = noteContent.includes("\r\n") ? "\r\n" : "\n";
-  const headingRange = findHeadingRange(noteContent, settings.completedHeading);
-
-  if (uniqueLines.length === 0) {
-    const section = `${settings.completedHeading.trim()}${newline}`;
-    if (headingRange) {
-      const content = `${noteContent.slice(0, headingRange.headingStart).trimEnd()}${newline}${newline}${section}${noteContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "")}`;
-      return { content, changed: content !== noteContent };
-    }
-    const content = `${noteContent.trimEnd()}${noteContent.trimEnd() ? `${newline}${newline}${newline}` : ""}${section}`;
-    return { content, changed: content !== noteContent };
-  }
-
-  const section = `${settings.completedHeading.trim()}${newline}${uniqueLines.join(newline)}${newline}`;
-  if (headingRange) {
-    const content = `${noteContent.slice(0, headingRange.headingStart).trimEnd()}${newline}${newline}${section}${noteContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "")}`;
-    return { content, changed: content !== noteContent };
-  }
-
-  const content = `${noteContent.trimEnd()}${noteContent.trimEnd() ? `${newline}${newline}${newline}` : ""}${section}`;
+  const section = `${settings.completedHeading.trim()}${newline}${uniqueLines.length > 0 ? `${uniqueLines.join(newline)}${newline}` : ""}`;
+  const completedRanges = findHeadingRanges(noteContent, settings.completedHeading);
+  const withoutCompletedSections = removeHeadingRanges(noteContent, completedRanges);
+  const trimmed = withoutCompletedSections.trimEnd();
+  const content = `${trimmed}${trimmed ? `${newline}${newline}` : ""}${section}`;
   return { content, changed: content !== noteContent };
 }
 
@@ -259,23 +258,40 @@ function isCompletedTaskLine(line: string): boolean {
   return /^\s*[-*+]\s+\[[xX]\]\s+/.test(line);
 }
 
-function extractSectionBody(content: string, heading: string): string {
-  const range = findHeadingRange(content, heading);
-  return range ? content.slice(range.bodyStart, range.sectionEnd).trim() : "";
+function extractSectionBodies(content: string, heading: string): string[] {
+  return findHeadingRanges(content, heading)
+    .map((range) => content.slice(range.bodyStart, range.sectionEnd).trim())
+    .filter(Boolean);
 }
 
-function findHeadingRange(content: string, heading: string): { headingStart: number; headingEnd: number; bodyStart: number; sectionEnd: number } | null {
+function findHeadingRange(content: string, heading: string): HeadingRange | null {
+  return findHeadingRanges(content, heading)[0] ?? null;
+}
+
+function findHeadingRanges(content: string, heading: string): HeadingRange[] {
   const escaped = escapeRegExp(heading.trim());
-  const match = content.match(new RegExp(`(^|\\r?\\n)${escaped}\\s*(?=\\r?\\n|$)`));
-  if (!match || match.index === undefined) {
-    return null;
+  const expression = new RegExp(`(^|\\r?\\n)${escaped}[^\\S\\r\\n]*(?=\\r?\\n|$)`, "g");
+  const ranges: HeadingRange[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = expression.exec(content)) !== null) {
+    const headingStart = match.index + (match[1]?.length ?? 0);
+    const headingEnd = endOfLineIndex(content, headingStart);
+    const rest = content.slice(headingEnd);
+    const nextHeading = rest.match(/(^|\r?\n)#{1,6}\s+\S/);
+    const sectionEnd = nextHeading?.index !== undefined ? headingEnd + nextHeading.index : content.length;
+    ranges.push({ headingStart, headingEnd, bodyStart: headingEnd, sectionEnd });
   }
-  const headingStart = match.index + (match[1]?.length ?? 0);
-  const headingEnd = endOfLineIndex(content, headingStart);
-  const rest = content.slice(headingEnd);
-  const nextHeading = rest.match(/\r?\n#{1,6}\s+\S/);
-  const sectionEnd = nextHeading && nextHeading.index !== undefined ? headingEnd + nextHeading.index : content.length;
-  return { headingStart, headingEnd, bodyStart: headingEnd, sectionEnd };
+
+  return ranges;
+}
+
+function removeHeadingRanges(content: string, ranges: HeadingRange[]): string {
+  let result = content;
+  for (const range of [...ranges].sort((left, right) => right.headingStart - left.headingStart)) {
+    result = `${result.slice(0, range.headingStart)}${result.slice(range.sectionEnd)}`;
+  }
+  return result;
 }
 
 function escapeRegExp(value: string): string {

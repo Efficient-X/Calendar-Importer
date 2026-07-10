@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+Completed section placement fix.
+
+- Always place `## Completed Calendar Tasks` after the active calendar section at the bottom of the managed note.
+- Repair notes containing duplicate `## My Calendar Events` or completed headings during the next sync.
+- Preserve tasks found under duplicate managed headings while the note is repaired.
+
 ## 1.1.0
 
 Reliability and cross-platform hardening release.

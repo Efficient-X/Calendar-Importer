@@ -1041,7 +1041,7 @@ describe("note block management", () => {
     ], settings).content;
 
     expect(replaced).toContain("## Completed Calendar Tasks");
-    expect(replaced).toContain("Active 📅 2026-07-16\n\n\n## Completed Calendar Tasks\n- [x]");
+    expect(replaced).toContain("Active 📅 2026-07-16\n\n## Completed Calendar Tasks\n- [x]");
     expect((replaced.match(/Done task/g) ?? [])).toHaveLength(1);
   });
 
@@ -1050,7 +1050,30 @@ describe("note block management", () => {
     const replaced = replaceCompletedTaskSection(note, [], settings).content;
 
     expect(replaced).toContain("## My Calendar Events\n- [ ] Active");
-    expect(replaced).toContain("\n\n\n## Completed Calendar Tasks\n");
+    expect(replaced).toContain("\n\n## Completed Calendar Tasks\n");
+  });
+
+  it("repairs duplicate active headings and moves completed tasks to the bottom", () => {
+    const note = [
+      "## My Calendar Events",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Done task - Thursday - All day #ExampleCalendar",
+      "",
+      "## My Calendar Events",
+      "- [ ] Active task - Friday - All day #ExampleCalendar",
+    ].join("\n");
+
+    const normalized = moveCompletedTasksToCompletedSection(note, settings).content;
+    const activeIndex = normalized.indexOf("## My Calendar Events");
+    const completedIndex = normalized.indexOf("## Completed Calendar Tasks");
+
+    expect(activeIndex).toBeGreaterThanOrEqual(0);
+    expect(completedIndex).toBeGreaterThan(activeIndex);
+    expect((normalized.match(/## My Calendar Events/g) ?? [])).toHaveLength(1);
+    expect((normalized.match(/## Completed Calendar Tasks/g) ?? [])).toHaveLength(1);
+    expect(normalized).toContain("## My Calendar Events\n- [ ] Active task");
+    expect(normalized).toContain("## Completed Calendar Tasks\n- [x] Done task");
   });
 
   it("finds completed tasks from both active and completed sections", () => {
