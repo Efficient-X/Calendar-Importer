@@ -681,7 +681,7 @@ function normalizeEvent(
     uid: stringValue(event.uid) || "(missing uid)",
     instanceId,
     title: event.summary || "(Untitled event)",
-    description: event.description || undefined,
+    description: getEventDescription(event) || undefined,
     location: event.location || undefined,
     start,
     end,
@@ -776,6 +776,15 @@ function getOrganizer(component: ICAL.Component): string | undefined {
   }
 
   return cleanOrganizerValue(stringValue(organizer.getFirstValue()));
+}
+
+function getEventDescription(event: ICAL.Event): string {
+  const plain = stringValue(event.description).trim();
+  if (plain) {
+    return plain;
+  }
+
+  return stringValue(event.component.getFirstPropertyValue("x-alt-desc")).trim();
 }
 
 function cleanOrganizerValue(value: string): string | undefined {

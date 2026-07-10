@@ -488,6 +488,23 @@ END:VEVENT
     expect(result.events[0].description).toBe("Line one\nLine two\nLine three with tick ✅");
   });
 
+  it("uses HTML alternate descriptions when no plain description is supplied", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:html-alt-description
+SUMMARY:Outlook invite
+X-ALT-DESC;FMTTYPE=text/html:<html><body><p>Bring forms</p><p>Ask for &amp; review notes</p></body></html>
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBe("<html><body><p>Bring forms</p><p>Ask for &amp; review notes</p></body></html>");
+    expect(renderEventTask(result.events[0], settings)).toContain("Bring forms Ask for &amp; review notes");
+  });
+
   it("preserves valid folded iCalendar text without treating it as semantic new lines", () => {
     const locationSettings = { ...settings, includeLocations: true };
     const result = parseIcsFeed(ics(`

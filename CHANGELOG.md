@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.15
+
+HTML invite description fallback.
+
+- Use `X-ALT-DESC` as the event description when an Outlook, Exchange, or similar feed provides HTML notes but no plain `DESCRIPTION`.
+- Keep the existing renderer cleanup path, so imported HTML-only notes become readable task text instead of raw markup.
+- Add a regression test for HTML-only alternate descriptions.
+
 ## 1.0.14
 
 Recurring exception hardening and README polish.
