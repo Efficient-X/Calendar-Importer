@@ -180,6 +180,51 @@ END:VEVENT
     expect(result.events).toHaveLength(0);
   });
 
+  it("skips one event with an invalid date without losing the rest of the feed", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:good-after-bad-date
+SUMMARY:Good appointment
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:bad-date
+SUMMARY:Broken appointment
+DTSTART:NOT-A-DATE
+DTEND:20260716T100000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].uid).toBe("good-after-bad-date");
+    expect(result.errors.join("\n")).toContain("Skipped");
+    expect(result.errors.join("\n")).toContain("bad-date");
+  });
+
+  it("recovers valid events when one event contains unrecoverable raw lines", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:good-before-raw-line
+SUMMARY:Good appointment
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:bad-raw-line
+SUMMARY:Broken appointment
+DTSTART:20260716T100000Z
+THIS LINE CANNOT BE PARSED
+DTEND:20260716T103000Z
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].uid).toBe("good-before-raw-line");
+    expect(result.errors.join("\n")).toContain("Recovered");
+    expect(result.errors.join("\n")).toContain("bad-raw-line");
+  });
+
   it("keeps events from multiple feeds with stable source-prefixed keys", () => {
     const otherFeed = { ...feed, id: "work", name: "Work" };
     const first = parseIcsFeed(simpleEvent("shared", "Primary event"), feed, settings, window);

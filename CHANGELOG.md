@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.13
+
+Bad-event isolation release.
+
+- Skip individual events that fail date/time normalization instead of failing the whole feed.
+- If a feed cannot be parsed as one calendar, retry by parsing each `VEVENT` inside the original calendar context.
+- Report skipped events by UID and summary where available, so support conversations have something useful to point at.
+- Add regression tests for one impossible-date event and one unrecoverable raw-line event among otherwise valid events.
+
 ## 1.0.12
 
 Provider compatibility sweep.

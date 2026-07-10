@@ -19,48 +19,14 @@ export function parseIcsFeed(
 ): ParsedFeedResult {
   const errors: string[] = [];
   const events: NormalizedCalendarEvent[] = [];
+  const repairedText = repairMalformedContentLines(icsText);
 
   try {
-    const jcal: unknown = ICAL.parse(repairMalformedContentLines(icsText));
-    if (!Array.isArray(jcal)) {
-      throw new Error("Parsed calendar did not contain a valid jCal component.");
-    }
-    const calendar = new ICAL.Component(jcal);
-    const calendarTimezone = normalizeTimezoneId(stringValue(calendar.getFirstPropertyValue("x-wr-timezone")));
-    const vevents = calendar.getAllSubcomponents("vevent");
-    const grouped = groupEventsByUid(vevents);
-
-    for (const group of grouped.values()) {
-      for (const master of group.masters) {
-        for (const exception of group.exceptions) {
-          try {
-            master.relateException(exception);
-          } catch (error) {
-            errors.push(`Could not relate recurrence exception for ${source.name}: ${errorMessage(error)}`);
-          }
-        }
-
-        if (master.isRecurring()) {
-          events.push(...expandRecurringEvent(master, source, settings, window, errors, calendarTimezone));
-        } else {
-          const normalized = normalizeEvent(master, master.startDate, master.endDate, source, settings, undefined, calendarTimezone);
-          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
-            events.push(...expandEventAndReminders(normalized, settings, window));
-          }
-        }
-      }
-
-      if (group.masters.length === 0) {
-        for (const orphan of group.exceptions) {
-          const normalized = normalizeEvent(orphan, orphan.startDate, orphan.endDate, source, settings, undefined, calendarTimezone);
-          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
-            events.push(...expandEventAndReminders(normalized, settings, window));
-          }
-        }
-      }
-    }
+    const parsed = parseCalendarComponents(repairedText);
+    events.push(...normalizeCalendarComponents(parsed.vevents, parsed.calendarTimezone, source, settings, window, errors));
   } catch (error) {
-    errors.push(`Could not parse ${source.name}: ${errorMessage(error)}`);
+    const recovered = recoverCalendarComponentsByEvent(repairedText, source, errors, error);
+    events.push(...normalizeCalendarComponents(recovered.vevents, recovered.calendarTimezone, source, settings, window, errors));
   }
 
   return { events, errors };
@@ -157,6 +123,191 @@ function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
   }
 
   return grouped;
+}
+
+function parseCalendarComponents(icsText: string): { calendarTimezone: string | undefined; vevents: ICAL.Component[] } {
+  const jcal: unknown = ICAL.parse(icsText);
+  if (!Array.isArray(jcal)) {
+    throw new Error("Parsed calendar did not contain a valid jCal component.");
+  }
+  const calendar = new ICAL.Component(jcal);
+  return {
+    calendarTimezone: normalizeTimezoneId(stringValue(calendar.getFirstPropertyValue("x-wr-timezone"))),
+    vevents: calendar.getAllSubcomponents("vevent"),
+  };
+}
+
+function normalizeCalendarComponents(
+  vevents: ICAL.Component[],
+  calendarTimezone: string | undefined,
+  source: CalendarFeedSetting,
+  settings: CalendarTaskSyncSettings,
+  window: ParseWindow,
+  errors: string[],
+): NormalizedCalendarEvent[] {
+  const events: NormalizedCalendarEvent[] = [];
+  let grouped: Map<string, EventGroup>;
+
+  try {
+    grouped = groupEventsByUid(vevents);
+  } catch (error) {
+    errors.push(`Could not group events from ${source.name}: ${errorMessage(error)}`);
+    return events;
+  }
+
+  for (const group of grouped.values()) {
+    for (const master of group.masters) {
+      try {
+        for (const exception of group.exceptions) {
+          try {
+            master.relateException(exception);
+          } catch (error) {
+            errors.push(`Could not relate recurrence exception for ${describeEvent(exception)} from ${source.name}: ${errorMessage(error)}`);
+          }
+        }
+
+        if (master.isRecurring()) {
+          events.push(...expandRecurringEvent(master, source, settings, window, errors, calendarTimezone));
+        } else {
+          const normalized = normalizeEvent(master, master.startDate, master.endDate, source, settings, undefined, calendarTimezone);
+          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
+            events.push(...expandEventAndReminders(normalized, settings, window));
+          }
+        }
+      } catch (error) {
+        errors.push(`Skipped ${describeEvent(master)} from ${source.name}: ${errorMessage(error)}`);
+      }
+    }
+
+    if (group.masters.length === 0) {
+      for (const orphan of group.exceptions) {
+        try {
+          const normalized = normalizeEvent(orphan, orphan.startDate, orphan.endDate, source, settings, undefined, calendarTimezone);
+          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
+            events.push(...expandEventAndReminders(normalized, settings, window));
+          }
+        } catch (error) {
+          errors.push(`Skipped ${describeEvent(orphan)} from ${source.name}: ${errorMessage(error)}`);
+        }
+      }
+    }
+  }
+
+  return events;
+}
+
+function recoverCalendarComponentsByEvent(
+  icsText: string,
+  source: CalendarFeedSetting,
+  errors: string[],
+  originalError: unknown,
+): { calendarTimezone: string | undefined; vevents: ICAL.Component[] } {
+  const lines = icsText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const contextLines = extractCalendarContextLines(lines);
+  const eventBlocks = extractVeventBlocks(lines);
+  const vevents: ICAL.Component[] = [];
+  let calendarTimezone = extractCalendarTimezone(contextLines);
+  let skipped = 0;
+
+  errors.push(`Could not parse ${source.name} as one calendar: ${errorMessage(originalError)}. Trying event-by-event recovery.`);
+
+  for (const eventBlock of eventBlocks) {
+    try {
+      const parsed = parseCalendarComponents(buildIsolatedCalendarText(contextLines, eventBlock));
+      calendarTimezone = parsed.calendarTimezone ?? calendarTimezone;
+      vevents.push(...parsed.vevents);
+    } catch (error) {
+      skipped += 1;
+      errors.push(`Skipped ${describeRawEvent(eventBlock)} from ${source.name}: ${errorMessage(error)}`);
+    }
+  }
+
+  if (vevents.length > 0) {
+    errors.push(`Recovered ${vevents.length} event${vevents.length === 1 ? "" : "s"} from ${source.name}; skipped ${skipped}.`);
+  }
+
+  return { calendarTimezone, vevents };
+}
+
+function extractCalendarContextLines(lines: string[]): string[] {
+  const context: string[] = [];
+  let inEvent = false;
+
+  for (const line of lines) {
+    if (/^BEGIN:VEVENT$/i.test(line)) {
+      inEvent = true;
+      continue;
+    }
+    if (inEvent) {
+      if (/^END:VEVENT$/i.test(line)) {
+        inEvent = false;
+      }
+      continue;
+    }
+    context.push(line);
+  }
+
+  return context;
+}
+
+function extractVeventBlocks(lines: string[]): string[][] {
+  const blocks: string[][] = [];
+  let current: string[] | null = null;
+
+  for (const line of lines) {
+    if (/^BEGIN:VEVENT$/i.test(line)) {
+      current = [line];
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+    current.push(line);
+    if (/^END:VEVENT$/i.test(line)) {
+      blocks.push(current);
+      current = null;
+    }
+  }
+
+  if (current) {
+    blocks.push(current);
+  }
+
+  return blocks;
+}
+
+function buildIsolatedCalendarText(contextLines: string[], eventBlock: string[]): string {
+  const output: string[] = [];
+  let inserted = false;
+
+  if (!contextLines.some((line) => /^BEGIN:VCALENDAR$/i.test(line))) {
+    output.push("BEGIN:VCALENDAR");
+  }
+  if (!contextLines.some((line) => /^VERSION(?:;[^:]*)?:/i.test(line))) {
+    output.push("VERSION:2.0");
+  }
+
+  for (const line of contextLines) {
+    if (/^END:VCALENDAR$/i.test(line) && !inserted) {
+      output.push(...eventBlock);
+      inserted = true;
+    }
+    output.push(line);
+  }
+
+  if (!inserted) {
+    output.push(...eventBlock);
+  }
+  if (!output.some((line) => /^END:VCALENDAR$/i.test(line))) {
+    output.push("END:VCALENDAR");
+  }
+
+  return output.join("\r\n");
+}
+
+function extractCalendarTimezone(contextLines: string[]): string | undefined {
+  const timezoneLine = contextLines.find((line) => /^X-WR-TIMEZONE(?:;[^:]*)?:/i.test(line));
+  return normalizeTimezoneId(timezoneLine ? timezoneLine.slice(timezoneLine.indexOf(":") + 1) : "");
 }
 
 function getContentLineProperty(line: string): string {
@@ -774,6 +925,29 @@ function pad2(value: number): string {
 
 function upper(value: unknown): string | undefined {
   return typeof value === "string" ? value.toUpperCase() : undefined;
+}
+
+function describeEvent(event: ICAL.Event): string {
+  const uid = stringValue(event.uid || event.component.getFirstPropertyValue("uid")).trim();
+  const summary = stringValue(event.summary || event.component.getFirstPropertyValue("summary")).trim();
+  if (uid && summary) {
+    return `${uid} (${summary})`;
+  }
+  return uid || summary || "one event";
+}
+
+function describeRawEvent(lines: string[]): string {
+  const uid = getRawContentLineValue(lines, "UID");
+  const summary = getRawContentLineValue(lines, "SUMMARY");
+  if (uid && summary) {
+    return `${uid} (${summary})`;
+  }
+  return uid || summary || "one event";
+}
+
+function getRawContentLineValue(lines: string[], propertyName: string): string {
+  const match = lines.find((line) => line.toUpperCase().startsWith(`${propertyName}:`));
+  return match ? match.slice(match.indexOf(":") + 1).trim() : "";
 }
 
 function stringValue(value: unknown): string {
