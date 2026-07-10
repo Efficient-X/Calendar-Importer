@@ -148,10 +148,9 @@ if (Test-Path -LiteralPath $pluginDataPath) {
     if ($settings.heading -eq "## Google Calendar") { $settings.heading = "## My Calendar Events" }
     if ($settings.taskTemplate -is [string]) {
       $calendarMarker = [char]::ConvertFromUtf32(0x1F4C5)
-      $scheduledMarker = [char]::ConvertFromUtf32(0x23F3)
       $legacyTemplate = "{{title}}{{detailsSeparator}}{{details}} - {{weekday}} - {{time}} $calendarMarker {{date}}"
       $newTemplate = "{{title}} - {{weekday}} - {{time}}{{preDateDetails}} {{dateMarker}} {{date}}{{postDateDetails}}"
-      if ($settings.taskTemplate -eq $legacyTemplate -or ($settings.taskTemplate.IndexOf($calendarMarker) -lt 0 -and $settings.taskTemplate.IndexOf($scheduledMarker) -lt 0)) {
+      if ($settings.taskTemplate -eq $legacyTemplate) {
         $settings.taskTemplate = $newTemplate
       }
     }
@@ -160,7 +159,9 @@ if (Test-Path -LiteralPath $pluginDataPath) {
       if ($null -eq $feed.includeKeywords) { $feed | Add-Member -NotePropertyName "includeKeywords" -NotePropertyValue "" -Force }
       if ($null -eq $feed.excludeKeywords) { $feed | Add-Member -NotePropertyName "excludeKeywords" -NotePropertyValue "" -Force }
     }
-    $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $pluginDataPath -Encoding UTF8
+    $settingsJson = $settings | ConvertTo-Json -Depth 20
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($pluginDataPath, $settingsJson, $utf8NoBom)
     Copy-Item -LiteralPath $pluginDataPath -Destination $pluginDataBackupPath -Force
     Copy-Item -LiteralPath $pluginDataPath -Destination $settingsMemoryPath -Force
     Write-Step "Migrated existing plugin settings for release defaults and cleaner notes"

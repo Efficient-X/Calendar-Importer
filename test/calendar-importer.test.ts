@@ -3,7 +3,9 @@ import { DEFAULT_SETTINGS } from "../src/defaults";
 import { eventMatchesFeedFilters, parseIcsFeed } from "../src/icsParser";
 import { renderEventTask } from "../src/eventRenderer";
 import { sortEvents } from "../src/eventSorter";
-import { normalizeFeedUrl } from "../src/security";
+import { normalizeFeedUrl, redactSensitiveUrls } from "../src/security";
+import { normalizeSettingsData } from "../src/settingsData";
+import { prepareScopedSyncCache } from "../src/syncCache";
 import {
   buildManagedBlock,
   extractCompletedSectionTaskLines,
@@ -36,8 +38,127 @@ const window = {
   end: new Date("2026-08-01T00:00:00Z"),
 };
 const calendarMarker = String.fromCodePoint(0x1f4c5);
+const scheduledMarker = String.fromCodePoint(0x23f3);
 
 describe("ICS parsing", () => {
+  it("keeps all-day dates stable west of UTC", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:all-day-west
+SUMMARY:US holiday
+DTSTART;VALUE=DATE:20260716
+DTEND;VALUE=DATE:20260717
+END:VEVENT`), feed, { ...settings, timezone: "America/Los_Angeles" }, window);
+
+    expect(result.events).toHaveLength(1);
+    expect(renderEventTask(result.events[0], { ...settings, timezone: "America/Los_Angeles" }))
+      .toContain("Thursday - All day 📅 2026-07-16");
+  });
+
+  it("does not include an event that ends exactly at the window start", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:boundary-event
+SUMMARY:Yesterday only
+DTSTART;VALUE=DATE:20260630
+DTEND;VALUE=DATE:20260701
+END:VEVENT`), feed, settings, window);
+
+    expect(result.events).toHaveLength(0);
+  });
+
+  it("includes the in-window portion of a recurring event that started earlier", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:overlap-recurring
+SUMMARY:Two-day shift
+DTSTART;VALUE=DATE:20260629
+DTEND;VALUE=DATE:20260701
+RRULE:FREQ=DAILY;COUNT=4
+END:VEVENT`), feed, settings, window);
+
+    expect(result.events.map((event) => event.start.toISOString().slice(0, 10))).toContain("2026-07-01");
+  });
+
+  it("uses stable fallback IDs when a provider omits UID", () => {
+    const text = ics(`
+BEGIN:VEVENT
+SUMMARY:No UID here
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+END:VEVENT`);
+    const first = parseIcsFeed(text, feed, settings, window);
+    const second = parseIcsFeed(text, feed, settings, window);
+
+    expect(first.events[0].uid).toMatch(/^missing-uid-/);
+    expect(second.events[0].instanceId).toBe(first.events[0].instanceId);
+  });
+
+  it("keeps only the latest duplicate event revision", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:duplicate-revision
+SEQUENCE:1
+SUMMARY:Old title
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:duplicate-revision
+SEQUENCE:2
+SUMMARY:Updated title
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+END:VEVENT`), feed, settings, window);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("Updated title");
+  });
+
+  it("uses an event end as the anchor for RELATED=END alarms", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:end-alarm
+SUMMARY:Return equipment
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER;RELATED=END:-P2D
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT`), feed, { ...settings, includeReminderTasks: true, minimumReminderLeadDays: 1 }, window);
+
+    const reminder = result.events.find((event) => event.isReminder);
+    expect(reminder?.start.toISOString()).toBe("2026-07-14T10:00:00.000Z");
+  });
+
+  it("decodes legacy quoted-printable text using its declared charset", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:latin-description
+SUMMARY:Legacy invite
+DESCRIPTION;ENCODING=QUOTED-PRINTABLE;CHARSET=ISO-8859-1:Caf=E9 meeting
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+END:VEVENT`), feed, settings, window);
+
+    expect(result.events[0].description).toBe("Café meeting");
+  });
+
+  it("does not swallow unknown uppercase provider properties into descriptions", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:provider-property
+SUMMARY:Provider extension
+DESCRIPTION:Keep this
+VENDORPROP:Do not append this
+DTSTART:20260716T090000Z
+DTEND:20260716T100000Z
+END:VEVENT`), feed, settings, window);
+
+    expect(result.events[0].description).toBe("Keep this");
+  });
   it("parses timed events with an end time", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT
@@ -373,13 +494,31 @@ END:VEVENT
     expect(result.events[1].start.toISOString()).toBe("2026-07-15T09:00:00.000Z");
   });
 
+  it("uses Apple calendar-level colours and removes unsupported alpha bytes", () => {
+    const result = parseIcsFeed([
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "X-APPLE-CALENDAR-COLOR:#63DA38FF",
+      "BEGIN:VEVENT",
+      "UID:apple-calendar-colour",
+      "SUMMARY:Apple coloured event",
+      "DTSTART:20260716T090000Z",
+      "DTEND:20260716T100000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n"), feed, settings, window);
+
+    expect(result.events[0].color).toBe("#63DA38");
+    expect(renderEventTask(result.events[0], settings)).toContain("color:#63DA38");
+  });
+
   it("repairs malformed Apple address lines before applying the date window", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT
 UID:old-icloud-address
 SUMMARY:Old appointment
 LOCATION:Shop 1
-Willoughby NSW 2068
+Exampletown NSW 2000
 DTSTART:20160101T090000Z
 DTEND:20160101T093000Z
 END:VEVENT
@@ -389,7 +528,7 @@ SUMMARY:Current appointment
 DTSTART:20260716T090000Z
 DTEND:20260716T093000Z
 END:VEVENT
-`), { ...feed, name: "Stephanie - iPhone" }, settings, window);
+`), { ...feed, name: "Sample iPhone" }, settings, window);
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
@@ -403,16 +542,16 @@ BEGIN:VEVENT
 UID:icloud-address
 SUMMARY:Appointment
 LOCATION:Shop 1
-Willoughby NSW 2068
+Exampletown NSW 2000
 DTSTART:20260716T090000Z
 DTEND:20260716T093000Z
 END:VEVENT
-`), { ...feed, name: "Stephanie - iPhone" }, locationSettings, window);
+`), { ...feed, name: "Sample iPhone" }, locationSettings, window);
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].location).toBe("Shop 1\nWilloughby NSW 2068");
-    expect(renderEventTask(result.events[0], locationSettings)).toContain("Shop 1 Willoughby NSW 2068");
+    expect(result.events[0].location).toBe("Shop 1\nExampletown NSW 2000");
+    expect(renderEventTask(result.events[0], locationSettings)).toContain("Shop 1 Exampletown NSW 2000");
   });
 
   it("uses Apple structured location titles when no plain location is supplied", () => {
@@ -440,7 +579,7 @@ UID:raw-description-lines
 SUMMARY:Planning visit
 DESCRIPTION:Bring forms
 Park near the side entrance
-Ask for Stephanie
+Ask for the coordinator
 DTSTART:20260716T090000Z
 DTEND:20260716T093000Z
 END:VEVENT
@@ -448,8 +587,8 @@ END:VEVENT
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].description).toBe("Bring forms\nPark near the side entrance\nAsk for Stephanie");
-    expect(renderEventTask(result.events[0], settings)).toContain("Bring forms Park near the side entrance Ask for Stephanie");
+    expect(result.events[0].description).toBe("Bring forms\nPark near the side entrance\nAsk for the coordinator");
+    expect(renderEventTask(result.events[0], settings)).toContain("Bring forms Park near the side entrance Ask for the coordinator");
   });
 
   it("keeps colon-looking raw description lines inside the description", () => {
@@ -459,7 +598,7 @@ UID:raw-description-colon-lines
 SUMMARY:Visit with notes
 DESCRIPTION:First line
 Notes: bring the blue folder
-Address: Willoughby NSW 2068
+Address: Exampletown NSW 2000
 DTSTART:20260716T090000Z
 DTEND:20260716T093000Z
 END:VEVENT
@@ -467,7 +606,7 @@ END:VEVENT
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].description).toBe("First line\nNotes: bring the blue folder\nAddress: Willoughby NSW 2068");
+    expect(result.events[0].description).toBe("First line\nNotes: bring the blue folder\nAddress: Exampletown NSW 2000");
   });
 
   it("does not swallow valid calendar fields after a repaired multiline description", () => {
@@ -623,16 +762,40 @@ describe("feed URL handling", () => {
   });
 
   it("rejects unsupported URL schemes before requestUrl sees them", () => {
-    expect(() => normalizeFeedUrl("file:///Users/brendon/calendar.ics")).toThrow(/supports/);
+    expect(() => normalizeFeedUrl("file:///Users/example/calendar.ics")).toThrow(/supports/);
     expect(() => normalizeFeedUrl("ftp://example.com/calendar.ics")).toThrow(/supports/);
   });
 
   it("rejects malformed feed URLs with a friendly message", () => {
     expect(() => normalizeFeedUrl("not a url")).toThrow(/valid calendar feed URL/);
   });
+
+  it("redacts private calendar links embedded in network errors", () => {
+    const message = "Request failed for https://calendar.example/private/secret-token/basic.ics?key=abc";
+    expect(redactSensitiveUrls(message)).toBe("Request failed for <calendar URL>");
+  });
 });
 
 describe("rendering and sorting", () => {
+  it("keeps calendar markers in titles when scheduled dates are enabled", () => {
+    const rendered = renderEventTask(makeEvent({ title: `Meet ${calendarMarker} team` }), {
+      ...settings,
+      useScheduledDate: true,
+    });
+
+    expect(rendered).toContain(`Meet ${calendarMarker} team`);
+    expect(rendered).toContain(`${scheduledMarker} 2026-07-16`);
+  });
+
+  it("honours the option to preserve repeated spaces", () => {
+    const rendered = renderEventTask(makeEvent({ title: "Two  spaces" }), {
+      ...settings,
+      collapseWhitespace: false,
+    });
+
+    expect(rendered).toContain("Two  spaces");
+  });
+
   it("renders a configurable template", () => {
     const event = makeEvent({ title: "Dentist", location: "Clinic" });
     const custom = {
@@ -724,6 +887,42 @@ describe("rendering and sorting", () => {
     expect(rendered).toContain("&lt;uid&gt;");
     expect(rendered).toContain("&lt;Shared calendar&gt;");
     expect(rendered).toContain("Bring &amp; review");
+  });
+});
+
+describe("settings and cache recovery", () => {
+  it("repairs malformed settings without losing valid feeds", () => {
+    const normalized = normalizeSettingsData({
+      syncFrequencyMinutes: Number.NaN,
+      pastDays: -50,
+      timezone: "Definitely/Not-A-Timezone",
+      heading: "not a heading",
+      completedHeading: "not a heading",
+      feeds: [
+        { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true },
+        { id: "shared", name: "Second", url: "https://example.test/two.ics", enabled: true },
+      ],
+      syncCache: { broken: null },
+    });
+
+    expect(normalized.syncFrequencyMinutes).toBe(60);
+    expect(normalized.pastDays).toBe(0);
+    expect(normalized.timezone).toBe("");
+    expect(normalized.heading).toBe(DEFAULT_SETTINGS.heading);
+    expect(normalized.completedHeading).toBe(DEFAULT_SETTINGS.completedHeading);
+    expect(normalized.feeds.map((item) => item.id)).toEqual(["shared", "shared-2"]);
+    expect(normalized.syncCache).toEqual({});
+  });
+
+  it("replaces only the cache entries belonging to one daily note", () => {
+    const cache = {
+      first: { key: "first", rendered: "First", lastSeen: "now", notePath: "Daily/2026-07-16.md" },
+      second: { key: "second", rendered: "Second", lastSeen: "now", notePath: "Daily/2026-07-17.md" },
+    };
+    const scoped = prepareScopedSyncCache(cache, "Daily/2026-07-16.md", new Set(["first"]), true);
+
+    expect(Object.keys(scoped.current)).toEqual(["first"]);
+    expect(Object.keys(scoped.next)).toEqual(["second"]);
   });
 });
 
@@ -915,6 +1114,15 @@ describe("note block management", () => {
       "Middle task",
       "Old task",
     ]);
+  });
+
+  it("sorts by the marked task date when a description contains another date", () => {
+    const sorted = prepareCompletedTaskLines([
+      `- [x] Newer event - contract from 2020-01-01 ${calendarMarker} 2026-07-20`,
+      `- [x] Older event ${calendarMarker} 2026-07-19`,
+    ], settings);
+
+    expect(sorted[0]).toContain("Newer event");
   });
 
   it("can trim completed tasks by retention days using completion date first", () => {

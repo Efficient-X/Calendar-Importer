@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
@@ -28,14 +28,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test
-        run: pnpm run test
+      - name: Validate release metadata
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const version = process.env.GITHUB_REF_NAME;
+          const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const versions = JSON.parse(fs.readFileSync("versions.json", "utf8"));
+          const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`Invalid release tag: ${version}`);
+          if (manifest.version !== version) throw new Error(`manifest.json is ${manifest.version}, tag is ${version}`);
+          if (pkg.version !== version) throw new Error(`package.json is ${pkg.version}, tag is ${version}`);
+          if (versions[version] !== manifest.minAppVersion) throw new Error(`versions.json is missing ${version}`);
+          const escaped = version.replace(/\./g, "\\.");
+          const section = changelog.match(new RegExp(`^## ${escaped}\\s+([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "m"));
+          if (!section || !section[1].trim()) throw new Error(`CHANGELOG.md needs a non-empty ${version} release description`);
+          NODE
+
+      - name: Check
+        run: pnpm run check
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
 
       - name: Build
         run: pnpm run build
 
       - name: Attest release assets
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
         with:
           subject-path: |
             manifest.json
@@ -50,12 +72,10 @@ jobs:
             capture && /^## / { exit }
             capture { print }
           ' CHANGELOG.md | sed '/./,$!d' > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            printf "Calendar Importer %s\n" "$GITHUB_REF_NAME" > RELEASE_NOTES.md
-          fi
+          test -s RELEASE_NOTES.md
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: RELEASE_NOTES.md
           fail_on_unmatched_files: true

@@ -56,13 +56,10 @@ export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
   minimumReminderLeadDays: 1,
   tags: "",
   sourceTag: "",
-  dryRunPreview: true,
   preserveManualCompletion: true,
   backupBeforeSync: false,
-  debugLogging: false,
   lastSyncTime: "",
   lastSyncResult: "",
   lastError: "",
-  lastPreview: "",
   syncCache: {},
 };

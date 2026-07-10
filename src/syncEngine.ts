@@ -14,13 +14,13 @@ import {
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "./noteWriter";
-import { isLikelyIcs, maskUrl, normalizeFeedUrl } from "./security";
+import { isLikelyIcs, maskUrl, normalizeFeedUrl, redactSensitiveUrls } from "./security";
+import { prepareScopedSyncCache } from "./syncCache";
 import type {
   CalendarTaskSyncSettings,
   NormalizedCalendarEvent,
   SyncCacheEntry,
   SyncChangeSummary,
-  SyncOptions,
   SyncResult,
 } from "./types";
 
@@ -38,6 +38,8 @@ interface BuildNotePlan {
   nextCache: Record<string, SyncCacheEntry>;
 }
 
+const MAX_FEED_SIZE_BYTES = 25 * 1024 * 1024;
+
 export class CalendarTaskSyncEngine {
   private isRunning = false;
 
@@ -46,7 +48,7 @@ export class CalendarTaskSyncEngine {
     private readonly getSettings: SettingsGetter,
   ) {}
 
-  async sync(options: SyncOptions): Promise<SyncResult> {
+  async sync(): Promise<SyncResult> {
     if (this.isRunning) {
       return {
         success: true,
@@ -59,7 +61,7 @@ export class CalendarTaskSyncEngine {
 
     this.isRunning = true;
     try {
-      return await this.runSync(options);
+      return await this.runSync();
     } finally {
       this.isRunning = false;
     }
@@ -71,7 +73,7 @@ export class CalendarTaskSyncEngine {
     return this.ensureNote(path, settings.createNoteIfMissing);
   }
 
-  private async runSync(options: SyncOptions): Promise<SyncResult> {
+  private async runSync(): Promise<SyncResult> {
     const settings = this.getSettings();
     const errors: string[] = [];
     const window = getSyncWindow(settings.pastDays, settings.futureDays, settings.timezone);
@@ -79,16 +81,35 @@ export class CalendarTaskSyncEngine {
     const events: NormalizedCalendarEvent[] = [];
     let filtered = 0;
 
+    if (enabledFeeds.length === 0) {
+      const message = "No enabled calendar feeds have a URL. Add or enable a feed before syncing. No notes were changed.";
+      return {
+        success: false,
+        skipped: false,
+        eventCount: 0,
+        message,
+        errors: [message],
+      };
+    }
+
     for (const feed of enabledFeeds) {
       const feedResult = await this.fetchAndParseFeed(feed.id, errors, window);
       events.push(...feedResult.events);
       filtered += feedResult.filtered;
     }
 
+    if (errors.length > 0) {
+      return {
+        success: false,
+        skipped: false,
+        eventCount: events.length,
+        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. No notes were changed.`,
+        errors,
+      };
+    }
+
     const sortedEvents = sortEvents(events, settings);
-    const writeResult = options.dryRun
-      ? await this.preview(sortedEvents, settings, filtered)
-      : await this.writeEvents(sortedEvents, settings, window, errors, filtered);
+    const writeResult = await this.writeEvents(sortedEvents, settings, window, errors, filtered);
 
     const success = errors.length === 0;
     const summaryText = formatChangeSummary(writeResult.changeSummary);
@@ -103,7 +124,6 @@ export class CalendarTaskSyncEngine {
       notePath: writeResult.notePath,
       message,
       errors,
-      preview: writeResult.preview,
       changeSummary: writeResult.changeSummary,
     };
   }
@@ -130,6 +150,10 @@ export class CalendarTaskSyncEngine {
       }
 
       const text = response.text;
+      if (new TextEncoder().encode(text).byteLength > MAX_FEED_SIZE_BYTES) {
+        errors.push(`${feed.name}: feed is larger than the 25 MB safety limit (${maskUrl(feed.url)}).`);
+        return { events: [], filtered: 0 };
+      }
       if (!isLikelyIcs(text)) {
         errors.push(`${feed.name}: response did not look like an iCalendar feed (${maskUrl(feed.url)}).`);
         return { events: [], filtered: 0 };
@@ -143,46 +167,9 @@ export class CalendarTaskSyncEngine {
         filtered: parsed.events.length - filteredEvents.length,
       };
     } catch (error) {
-      errors.push(`${feed.name}: could not fetch feed ${maskUrl(feed.url)}: ${errorMessage(error)}`);
+      errors.push(`${feed.name}: could not fetch feed ${maskUrl(feed.url)}: ${redactSensitiveUrls(errorMessage(error))}`);
       return { events: [], filtered: 0 };
     }
-  }
-
-  private async preview(
-    events: NormalizedCalendarEvent[],
-    settings: CalendarTaskSyncSettings,
-    filtered: number,
-  ): Promise<{ preview: string; notePath?: string; changeSummary: SyncChangeSummary }> {
-    if (settings.useDailyNotes) {
-      const grouped = groupEventsByPath(events, settings);
-      const totalSummary = emptySummary(filtered);
-      const previews: string[] = [];
-
-      for (const [path, pathEvents] of grouped.entries()) {
-        const existing = await this.readNoteIfExists(path);
-        const plan = this.buildNotePlan(pathEvents, settings, existing, 0);
-        addSummary(totalSummary, plan.summary);
-        previews.push(`# ${path}\n${formatChangeSummary(plan.summary)}\n\n${plan.activeBlock}`);
-      }
-
-      return {
-        preview: previews.join("\n\n"),
-        changeSummary: totalSummary,
-      };
-    }
-
-    const notePath = this.resolveNotePath(new Date(), settings);
-    const existing = await this.readNoteIfExists(notePath);
-    const plan = this.buildNotePlan(events, settings, existing, filtered);
-    const completedPreview = settings.completedTaskMode === "move-to-completed-section" && plan.completedLines.length > 0
-      ? `\n\n${settings.completedHeading}\n\n${plan.completedLines.join("\n")}`
-      : "";
-
-    return {
-      preview: `${formatChangeSummary(plan.summary)}\n\n${plan.activeBlock}${completedPreview}`,
-      notePath,
-      changeSummary: plan.summary,
-    };
   }
 
   private async writeEvents(
@@ -191,7 +178,7 @@ export class CalendarTaskSyncEngine {
     window: { start: Date; end: Date },
     errors: string[],
     filtered: number,
-  ): Promise<{ preview?: string; notePath?: string; changeSummary: SyncChangeSummary }> {
+  ): Promise<{ notePath?: string; changeSummary: SyncChangeSummary }> {
     if (settings.useDailyNotes) {
       const summary = await this.writeDailyNotes(events, settings, window, errors, filtered);
       return { notePath: settings.dailyNoteTemplate, changeSummary: summary };
@@ -245,35 +232,51 @@ export class CalendarTaskSyncEngine {
         return emptySummary(filtered);
       }
 
-      const existing = await this.app.vault.read(file);
-      const normalizedExisting = settings.completedTaskMode === "move-to-completed-section"
-        ? moveCompletedTasksToCompletedSection(existing, settings).content
-        : existing;
-      const plan = this.buildNotePlan(events, settings, normalizedExisting, filtered);
-      const activeReplacement = replaceManagedBlock(normalizedExisting, plan.activeBlock, settings);
-      const completedReplacement = settings.completedTaskMode === "move-to-completed-section"
-        ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
-        : activeReplacement;
-
-      settings.syncCache = plan.nextCache;
-
-      if (!completedReplacement.changed) {
-        return plan.summary;
-      }
-
       if (settings.backupBeforeSync) {
-        await this.createBackup(file, existing);
+        const existing = await this.app.vault.read(file);
+        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered);
+        if (update.content !== existing) {
+          await this.createBackup(file, existing);
+        }
       }
 
-      await this.app.vault.modify(file, completedReplacement.content);
-      return plan.summary;
+      const outcome: { plan?: BuildNotePlan } = {};
+      await this.app.vault.process(file, (existing) => {
+        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered);
+        outcome.plan = update.plan;
+        return update.content;
+      });
+      if (!outcome.plan) {
+        throw new Error("Could not prepare the note update.");
+      }
+      settings.syncCache = outcome.plan.nextCache;
+      return outcome.plan.summary;
     } catch (error) {
       errors.push(`${path}: could not update note: ${errorMessage(error)}`);
       return emptySummary(filtered);
     }
   }
 
+  private prepareNoteUpdate(
+    path: string,
+    events: NormalizedCalendarEvent[],
+    settings: CalendarTaskSyncSettings,
+    existing: string,
+    filtered: number,
+  ): { plan: BuildNotePlan; content: string } {
+    const normalizedExisting = settings.completedTaskMode === "move-to-completed-section"
+      ? moveCompletedTasksToCompletedSection(existing, settings).content
+      : existing;
+    const plan = this.buildNotePlan(path, events, settings, normalizedExisting, filtered);
+    const activeReplacement = replaceManagedBlock(normalizedExisting, plan.activeBlock, settings);
+    const completedReplacement = settings.completedTaskMode === "move-to-completed-section"
+      ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
+      : activeReplacement;
+    return { plan, content: completedReplacement.content };
+  }
+
   private buildNotePlan(
+    notePath: string,
     events: NormalizedCalendarEvent[],
     settings: CalendarTaskSyncSettings,
     existingContent: string,
@@ -284,8 +287,10 @@ export class CalendarTaskSyncEngine {
       ? extractCompletedSectionTaskLines(existingContent, settings)
       : [];
     const summary = emptySummary(filtered);
-    const currentKeys = new Set<string>();
-    const nextCache: Record<string, SyncCacheEntry> = {};
+    const currentKeys = new Set(events.map((event) => event.instanceId));
+    const scoped = prepareScopedSyncCache(settings.syncCache, notePath, currentKeys, settings.useDailyNotes);
+    const scopedCache = scoped.current;
+    const nextCache: Record<string, SyncCacheEntry> = scoped.next;
     const activeLines: { key: string; line: string }[] = [];
     const completedArchiveLines = [...existingCompletedSectionLines];
     const seenAt = new Date().toISOString();
@@ -293,15 +298,13 @@ export class CalendarTaskSyncEngine {
     for (const event of events) {
       const uncheckedLine = renderEventTask(event, settings, false);
       const taskIdentity = getTaskIdentity(uncheckedLine);
-      const previous = settings.syncCache[event.instanceId];
+      const previous = scopedCache[event.instanceId];
       const previousIdentity = previous?.rendered ? getTaskIdentity(previous.rendered) : "";
       const previousCompletedLine = previous?.completed && previous.rendered ? normalizeTaskSymbols(previous.rendered) : undefined;
       const preservedLine = settings.preserveManualCompletion
         ? completedLines[event.instanceId] ?? completedLines[taskIdentity] ?? completedLines[previousIdentity] ?? previousCompletedLine
         : undefined;
       const completed = Boolean(preservedLine);
-      currentKeys.add(event.instanceId);
-
       if (!previous) {
         summary.added += 1;
       } else if (getTaskIdentity(previous.rendered) !== taskIdentity) {
@@ -315,6 +318,7 @@ export class CalendarTaskSyncEngine {
         rendered: preservedLine ?? uncheckedLine,
         completed,
         lastSeen: seenAt,
+        notePath,
       };
 
       if (preservedLine && settings.completedTaskMode === "move-to-completed-section") {
@@ -330,7 +334,7 @@ export class CalendarTaskSyncEngine {
       activeLines.push({ key: event.instanceId, line: preservedLine ?? uncheckedLine });
     }
 
-    for (const key of Object.keys(settings.syncCache)) {
+    for (const key of Object.keys(scopedCache)) {
       if (!currentKeys.has(key)) {
         summary.removed += 1;
       }
@@ -342,14 +346,6 @@ export class CalendarTaskSyncEngine {
       summary,
       nextCache,
     };
-  }
-
-  private async readNoteIfExists(path: string): Promise<string> {
-    const existing = this.app.vault.getAbstractFileByPath(normalizePath(path));
-    if (existing instanceof TFile) {
-      return this.app.vault.read(existing);
-    }
-    return "";
   }
 
   private async ensureNote(path: string, createIfMissing: boolean): Promise<TFile | null> {
@@ -392,7 +388,13 @@ export class CalendarTaskSyncEngine {
 
   private async createBackup(file: TFile, content: string): Promise<void> {
     const stamp = DateTime.now().toFormat("yyyyMMdd-HHmmss");
-    const backupPath = normalizePath(`${file.path}.${stamp}.bak`);
+    const basePath = normalizePath(`${file.path}.${stamp}`);
+    let backupPath = `${basePath}.bak`;
+    let suffix = 2;
+    while (this.app.vault.getAbstractFileByPath(backupPath)) {
+      backupPath = `${basePath}-${suffix}.bak`;
+      suffix += 1;
+    }
     await this.app.vault.create(backupPath, content);
   }
 
@@ -407,7 +409,7 @@ export class CalendarTaskSyncEngine {
 function groupEventsByPath(events: NormalizedCalendarEvent[], settings: CalendarTaskSyncSettings): Map<string, NormalizedCalendarEvent[]> {
   const grouped = new Map<string, NormalizedCalendarEvent[]>();
   for (const event of events) {
-    const path = normalizePath(formatTemplatePath(settings.dailyNoteTemplate, event.start, settings.timezone));
+    const path = normalizePath(formatTemplatePath(settings.dailyNoteTemplate, event.start, settings.timezone, event.allDay));
     const bucket = grouped.get(path) ?? [];
     bucket.push(event);
     grouped.set(path, bucket);

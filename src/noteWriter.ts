@@ -326,8 +326,14 @@ function getTaskCompletionDate(line: string): Date | null {
 
 function getTaskEventDate(line: string): Date | null {
   const doneMarker = String.fromCodePoint(0x2705);
+  const calendarMarker = String.fromCodePoint(0x1f4c5);
+  const scheduledMarker = String.fromCodePoint(0x23f3);
+  const startMarker = String.fromCodePoint(0x1f6eb);
   const beforeCompletion = normalizeTaskSymbols(line).split(doneMarker)[0];
-  const match = beforeCompletion.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  const markedDate = beforeCompletion.match(
+    new RegExp(`(?:${calendarMarker}|${scheduledMarker}|${startMarker})\\s+(\\d{4}-\\d{2}-\\d{2})`, "u"),
+  );
+  const match = markedDate ?? beforeCompletion.match(/\b(\d{4}-\d{2}-\d{2})\b/);
   return match ? parseUtcDate(match[1]) : null;
 }
 

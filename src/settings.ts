@@ -47,7 +47,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       text: "Import iCal/ICS calendar feeds into Obsidian as task lines that work well with the Tasks plugin. Private calendar URLs expose calendar data, so treat them like passwords.",
     });
     const support = containerEl.createDiv({ cls: "calendar-importer-support" });
-    support.createEl("span", { text: "Built by Efficient X Group." });
+    support.createSpan({ text: "Built by Efficient X Group." });
     const supportLink = support.createEl("a", { text: "Support development", href: SUPPORT_URL });
     supportLink.setAttr("target", "_blank");
     supportLink.setAttr("rel", "noopener");
@@ -62,7 +62,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
   private renderOnboardingChecklist(containerEl: HTMLElement): void {
     const checklist = containerEl.createDiv({ cls: "calendar-importer-onboarding" });
-    checklist.createEl("div", { cls: "calendar-importer-onboarding-title", text: "First run checklist" });
+    checklist.createDiv({ cls: "calendar-importer-onboarding-title", text: "First run checklist" });
     checklist.createEl("p", {
       text: "Calendar in, tasks out. Tiny miracle, minimal drama.",
     });
@@ -88,7 +88,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       text: "Advanced controls",
     });
     advanced.createEl("p", {
-      text: "Optional knobs for sync windows, task templates, retention, and debugging. Leave them alone until you want the extra control.",
+      text: "Optional knobs for sync ranges, task templates, retention, and debugging. Leave them alone until you want the extra control.",
     });
 
     this.renderSyncSettings(advanced);
@@ -99,15 +99,15 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
   private renderStatus(containerEl: HTMLElement): void {
     const status = containerEl.createDiv({ cls: "calendar-importer-status" });
-    status.createEl("div", {
+    status.createDiv({
       cls: "calendar-importer-status-title",
       text: this.plugin.settings.lastSyncResult ? "Last sync" : "Ready",
     });
-    status.createEl("div", {
+    status.createDiv({
       cls: "calendar-importer-status-body",
       text: this.plugin.settings.lastSyncResult || "Add a calendar feed, then run a sync.",
     });
-    status.createEl("div", {
+    status.createDiv({
       cls: "calendar-importer-status-meta",
       text: this.plugin.settings.lastSyncTime || "No sync has run yet.",
     });
@@ -122,7 +122,14 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       .addButton((button) => button
         .setCta()
         .setButtonText("Sync now")
-        .onClick(() => this.runSafely(() => this.plugin.syncNow("settings-button"))));
+        .onClick(() => this.runSafely(() => this.plugin.syncNow())));
+
+    new Setting(containerEl)
+      .setName("Open calendar note")
+      .setDesc("Opens today's Calendar Importer destination note.")
+      .addButton((button) => button
+        .setButtonText("Open note")
+        .onClick(() => this.runSafely(() => this.plugin.openCalendarNote())));
 
   }
 
@@ -365,7 +372,8 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       .addText((text) => text
         .setValue(this.plugin.settings.heading)
         .onChange(async (value) => {
-          this.plugin.settings.heading = value.trim() || "## My Calendar Events";
+          const heading = normalizeHeadingInput(value, "## My Calendar Events");
+          this.plugin.settings.heading = heading === this.plugin.settings.completedHeading ? "## My Calendar Events" : heading;
           await this.plugin.saveSettings();
         }));
 
@@ -377,7 +385,8 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         text
           .setValue(this.plugin.settings.completedHeading)
           .onChange(async (value) => {
-            this.plugin.settings.completedHeading = value.trim() || "## Completed Calendar Tasks";
+            const heading = normalizeHeadingInput(value, "## Completed Calendar Tasks");
+            this.plugin.settings.completedHeading = heading === this.plugin.settings.heading ? "## Completed Calendar Tasks" : heading;
             await this.plugin.saveSettings();
           });
       });
@@ -701,15 +710,6 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
   private renderDebugSettings(containerEl: HTMLElement): void {
     new Setting(containerEl).setName("Debug").setHeading();
 
-    new Setting(containerEl)
-      .setName("Debug logging")
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.debugLogging)
-        .onChange(async (value) => {
-          this.plugin.settings.debugLogging = value;
-          await this.plugin.saveSettings();
-        }));
-
     containerEl.createEl("p", { text: `Last sync time: ${this.plugin.settings.lastSyncTime || "Never"}` });
     containerEl.createEl("p", { text: `Last sync result: ${this.plugin.settings.lastSyncResult || "None"}` });
 
@@ -803,9 +803,6 @@ function protectTextInput(input: HTMLInputElement | HTMLTextAreaElement): void {
 }
 
 function styleDestructiveButton(button: ButtonComponent): ButtonComponent {
-  if ("setDestructive" in button && typeof button.setDestructive === "function") {
-    return button.setDestructive();
-  }
   button.buttonEl.addClass("mod-warning");
   return button;
 }
@@ -813,6 +810,11 @@ function styleDestructiveButton(button: ButtonComponent): ButtonComponent {
 function normalizeFeedColour(value: string | undefined): string {
   const current = value?.trim() ?? "";
   return FEED_COLOURS.some((colour) => colour.value === current) ? current : "";
+}
+
+function normalizeHeadingInput(value: string, fallback: string): string {
+  const heading = value.trim();
+  return /^#{1,6}\s+\S/.test(heading) ? heading : fallback;
 }
 
 function errorMessage(error: unknown): string {

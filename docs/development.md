@@ -6,7 +6,7 @@ Install dependencies and run the checks:
 
 ```bash
 pnpm install
-pnpm run test
+pnpm run check
 pnpm run build
 ```
 
@@ -22,4 +22,4 @@ Local vault install:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\install-calendar-importer.ps1"
 ```
 
-The core behaviour is covered by unit tests: parsing calendar feeds, rendering tasks, sorting events, preserving completed tasks, writing notes, reminders, and settings-driven formatting.
+The checks include strict TypeScript, the official Obsidian plugin lint rules, and regression tests for parsing calendar feeds, rendering tasks, sorting events, preserving completed tasks, writing notes, reminders, mobile-safe APIs, and settings recovery.

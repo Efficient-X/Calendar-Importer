@@ -35,13 +35,13 @@ export function renderEvents(events: NormalizedCalendarEvent[], settings: Calend
 }
 
 export function renderEventTask(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings, completed = false): string {
-  const prefix = completed ? settings.taskPrefix.replace("[ ]", "[x]") : settings.taskPrefix;
+  const prefix = completed ? settings.taskPrefix.replace(/\[\s\]/, "[x]") : settings.taskPrefix;
   const body = renderTemplate(event, settings);
   const swatch = settings.includeColorSwatch ? buildColorSwatch(event.color) : "";
   const tags = [settings.tags, settings.sourceTag, event.tags].map((tag) => tag?.trim() ?? "").filter(Boolean).join(" ");
   const line = `${prefix} ${body}${tags ? ` ${tags}` : ""}${buildMetadataSuffix(event, settings)}`;
   const withSwatch = swatch && !body.includes(swatch) ? line.replace(`${prefix} `, `${prefix} ${swatch} `) : line;
-  return normalizeTaskLine(settings.useScheduledDate ? withSwatch.replace(CALENDAR_MARKER, SCHEDULED_MARKER) : withSwatch);
+  return normalizeTaskLine(withSwatch, settings.collapseWhitespace);
 }
 
 export function renderTemplate(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings): string {
@@ -50,8 +50,8 @@ export function renderTemplate(event: NormalizedCalendarEvent, settings: Calenda
 }
 
 export function buildTokens(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings): RenderTokens {
-  const start = toDateTime(event.start, settings.timezone);
-  const end = event.end ? toDateTime(event.end, settings.timezone) : undefined;
+  const start = toDateTime(event.start, settings.timezone, event.allDay);
+  const end = event.end ? toDateTime(event.end, settings.timezone, event.allDay) : undefined;
   const details = settings.includeDescriptions ? cleanDescription(event.description ?? "", settings) : "";
   const location = settings.includeLocations ? cleanInline(event.location ?? "", settings) : "";
   const calendarName = settings.includeCalendarNames ? cleanInline(event.calendarName ?? event.sourceName, settings) : "";
@@ -112,7 +112,7 @@ export function buildTaskPreview(settings: CalendarTaskSyncSettings): string {
 }
 
 function buildColorSwatch(color: string | undefined): string {
-  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) {
+  if (!color || (!/^#[0-9a-f]{6}$/i.test(color) && !/^[a-z]+$/i.test(color))) {
     return "";
   }
   return `<span class="calendar-importer-swatch" style="color:${color}">${COLOR_SWATCH}</span>`;
@@ -213,6 +213,7 @@ function decodeNumericEntity(fallback: string, codePoint: number): string {
   }
 }
 
-function normalizeTaskLine(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+function normalizeTaskLine(value: string, collapseWhitespace: boolean): string {
+  const singleLine = value.replace(/[\r\n\t]+/g, " ");
+  return collapseWhitespace ? singleLine.replace(/\s+/g, " ").trim() : singleLine.trim();
 }

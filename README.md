@@ -32,7 +32,7 @@ Less double entry, and more Obsidian time for you. How good!
 
 ## Installation
 
-Once Calendar Importer is available in Community Plugins:
+In Obsidian:
 
 1. Search for `Calendar Importer`.
 2. Install it.
@@ -147,6 +147,7 @@ Or, when said less like a search engine: it gets your calendar commitments into 
 - [Commands](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/commands.md)
 - [FAQ](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/faq.md)
 - [Privacy and feed URL safety](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/privacy.md)
+- [Security reporting](https://github.com/Efficient-X/Calendar-Importer/blob/main/SECURITY.md)
 - [Tester checklist](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/testing.md)
 - [Development](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/development.md)
 - [Release notes for maintainers](https://github.com/Efficient-X/Calendar-Importer/blob/main/docs/release.md)

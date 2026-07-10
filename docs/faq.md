@@ -51,3 +51,13 @@ Use your calendar app as the source of truth for calendar events.
 Use Obsidian as the place where those events become visible beside your notes, tasks, daily plans, dashboards, and reviews.
 
 Calendar first. Obsidian everywhere after that. Nice and calm.
+
+## Does Calendar Importer sync while Obsidian is closed?
+
+No. It works quietly in the background while Obsidian is open, including on mobile when the app is active. iOS and Android can suspend apps in the background, so they do not promise desktop-style clockwork after Obsidian has been closed or parked for a while.
+
+Turn on `Sync on startup` if you want a fresh calendar whenever you open Obsidian. You can also use `Sync now` when you want certainty immediately.
+
+## What happens if one calendar feed is temporarily broken?
+
+Calendar Importer stops that sync before changing any notes. Your last good calendar tasks stay where they are, and the settings page records the error. Fix the link or connection, run `Sync now`, and off you go.

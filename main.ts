@@ -2,7 +2,8 @@ import { Notice, Plugin, TFile, normalizePath } from "obsidian";
 import { DEFAULT_SETTINGS, DEFAULT_TASK_TEMPLATE, LEGACY_TASK_TEMPLATES } from "./src/defaults";
 import { CalendarTaskSyncSettingTab } from "./src/settings";
 import { CalendarTaskSyncEngine } from "./src/syncEngine";
-import type { CalendarFeedSetting, CalendarTaskSyncSettings, SyncResult } from "./src/types";
+import { normalizeSettingsData } from "./src/settingsData";
+import type { CalendarTaskSyncSettings, SyncResult } from "./src/types";
 
 const PLUGIN_NAME = "Calendar Importer";
 const LEGACY_PLUGIN_IDS = ["ical-events-to-tasks", "calendar-task-sync"];
@@ -11,33 +12,34 @@ export default class CalendarTaskSyncPlugin extends Plugin {
   settings: CalendarTaskSyncSettings = DEFAULT_SETTINGS;
   engine!: CalendarTaskSyncEngine;
   private syncIntervalId: number | null = null;
+  private settingsSyncTimeoutId: number | null = null;
+  private saveQueue: Promise<void> = Promise.resolve();
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.engine = new CalendarTaskSyncEngine(this.app, () => this.settings);
 
     this.addSettingTab(new CalendarTaskSyncSettingTab(this.app, this));
-    this.addRibbonIcon("calendar-check", `${PLUGIN_NAME}: Sync now`, () => this.runSafely(() => this.syncNow("ribbon")));
+    this.addRibbonIcon("calendar-check", `${PLUGIN_NAME}: Sync now`, () => this.runSafely(() => this.syncNow()));
     this.registerCommands();
     this.scheduleSync();
 
     if (this.settings.syncOnStartup) {
-      this.runSafely(() => this.syncNow("startup"));
+      this.app.workspace.onLayoutReady(() => {
+        this.runSafely(() => this.syncNow());
+      });
     }
   }
 
   onunload(): void {
     this.clearScheduledSync();
+    this.clearSettingsSyncTimeout();
   }
 
   async loadSettings(): Promise<void> {
     const loaded: unknown = await this.loadData();
     const loadedSettings = isSettingsData(loaded) ? loaded : await this.loadLegacySettings();
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      ...loadedSettings,
-      feeds: normalizeFeedSettings(loadedSettings.feeds),
-    };
+    this.settings = normalizeSettingsData(loadedSettings);
     this.settings.taskTemplate = migrateTaskTemplate(repairSymbols(this.settings.taskTemplate));
     for (const entry of Object.values(this.settings.syncCache ?? {})) {
       entry.rendered = repairSymbols(entry.rendered);
@@ -75,10 +77,12 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
   async saveSettings(settings: CalendarTaskSyncSettings = this.settings): Promise<void> {
     this.settings = settings;
-    await this.saveData(this.settings);
+    await this.queueSettingsSave();
     this.rescheduleSync();
     if (this.settings.syncOnSettingsChange) {
-      this.runSafely(() => this.syncNow("settings"));
+      this.scheduleSettingsSync();
+    } else {
+      this.clearSettingsSyncTimeout();
     }
   }
 
@@ -86,7 +90,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.clearScheduledSync();
     const minutes = Math.max(5, Math.min(24 * 60, this.settings.syncFrequencyMinutes));
     this.syncIntervalId = window.setInterval(() => {
-      this.runSafely(() => this.syncNow("scheduled"));
+      this.runSafely(() => this.syncNow());
     }, minutes * 60 * 1000);
     this.registerInterval(this.syncIntervalId);
   }
@@ -102,17 +106,18 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     }
   }
 
-  async syncNow(trigger: string): Promise<SyncResult | null> {
-    const result = await this.engine.sync({ dryRun: false, trigger });
-    this.settings.lastSyncTime = new Date().toISOString();
-    this.settings.lastSyncResult = result.message;
-    this.settings.lastError = result.errors.length > 0 ? result.errors.join("\n") : "";
-    await this.saveData(this.settings);
+  async syncNow(): Promise<SyncResult | null> {
+    const result = await this.engine.sync();
 
     if (result.skipped) {
       new Notice(`${PLUGIN_NAME}: sync already running, skipped.`);
       return result;
     }
+
+    this.settings.lastSyncTime = new Date().toISOString();
+    this.settings.lastSyncResult = result.message;
+    this.settings.lastError = result.errors.length > 0 ? result.errors.join("\n") : "";
+    await this.queueSettingsSave();
 
     if (result.success) {
       new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}.`);
@@ -140,7 +145,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.addCommand({
       id: "sync-now",
       name: "Sync now",
-      callback: () => this.runSafely(() => this.syncNow("manual")),
+      callback: () => this.runSafely(() => this.syncNow()),
     });
 
     this.addCommand({
@@ -150,12 +155,18 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "open-calendar-note",
+      name: "Open calendar note",
+      callback: () => this.runSafely(() => this.openCalendarNote()),
+    });
+
+    this.addCommand({
       id: "rebuild-calendar-note",
       name: "Rebuild calendar note",
       callback: () => this.runSafely(async () => {
         this.settings.syncCache = {};
         await this.saveData(this.settings);
-        await this.syncNow("rebuild");
+        await this.syncNow();
       }),
     });
   }
@@ -165,32 +176,34 @@ export default class CalendarTaskSyncPlugin extends Plugin {
       new Notice(`${PLUGIN_NAME}: ${errorMessage(error)}`);
     });
   }
+
+  private queueSettingsSave(): Promise<void> {
+    const snapshot = JSON.parse(JSON.stringify(this.settings)) as CalendarTaskSyncSettings;
+    const save = this.saveQueue
+      .catch(() => undefined)
+      .then(() => this.saveData(snapshot));
+    this.saveQueue = save;
+    return save;
+  }
+
+  private scheduleSettingsSync(): void {
+    this.clearSettingsSyncTimeout();
+    this.settingsSyncTimeoutId = window.setTimeout(() => {
+      this.settingsSyncTimeoutId = null;
+      this.runSafely(() => this.syncNow());
+    }, 1000);
+  }
+
+  private clearSettingsSyncTimeout(): void {
+    if (this.settingsSyncTimeoutId !== null) {
+      window.clearTimeout(this.settingsSyncTimeoutId);
+      this.settingsSyncTimeoutId = null;
+    }
+  }
 }
 
 function isSettingsData(value: unknown): value is Partial<CalendarTaskSyncSettings> {
-  return typeof value === "object" && value !== null;
-}
-
-function normalizeFeedSettings(value: unknown): CalendarFeedSetting[] {
-  const feeds = Array.isArray(value) ? value : DEFAULT_SETTINGS.feeds;
-  return feeds.filter(isRecord).map((feed, index) => {
-    const enabledValue = feed.enabled;
-    return {
-      id: typeof feed.id === "string" ? feed.id : `feed-${index}`,
-      name: typeof feed.name === "string" ? feed.name : "New calendar",
-      url: typeof feed.url === "string" ? feed.url : "",
-      color: typeof feed.color === "string" ? feed.color : "",
-      sourceLabel: typeof feed.sourceLabel === "string" ? feed.sourceLabel : "",
-      tags: typeof feed.tags === "string" ? feed.tags : "",
-      includeKeywords: typeof feed.includeKeywords === "string" ? feed.includeKeywords : "",
-      excludeKeywords: typeof feed.excludeKeywords === "string" ? feed.excludeKeywords : "",
-      enabled: typeof enabledValue === "boolean" ? enabledValue : true,
-    };
-  });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function errorMessage(error: unknown): string {

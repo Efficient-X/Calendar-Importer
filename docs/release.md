@@ -3,18 +3,19 @@
 Release checklist:
 
 1. Confirm `manifest.json`, `versions.json`, `README.md`, `LICENSE`, `main.js`, and `styles.css` are correct.
-2. Run `pnpm run test`.
-3. Run `pnpm run build`.
-4. Push a semver tag such as `1.0.0`.
-5. Confirm the GitHub release contains `manifest.json`, `main.js`, and `styles.css`.
-6. Confirm the release has a useful GitHub description.
-7. Run the mobile/download verification script:
+2. Add a useful, non-empty section for the version in `CHANGELOG.md`.
+3. Run `pnpm run check`.
+4. Run `pnpm run build`.
+5. Push a semver tag such as `1.0.0`.
+6. Confirm the GitHub release contains `manifest.json`, `main.js`, and `styles.css`.
+7. Confirm the release has a useful GitHub description.
+8. Run the mobile/download verification script:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\verify-release.ps1" -Version "1.0.0"
 ```
 
-The release workflow creates the GitHub release from the tag.
+The release workflow creates the GitHub release from the tag. It refuses to publish when the tag, manifest, package version, `versions.json`, or changelog description disagree.
 
 ## Mobile Release Checks
 
@@ -27,6 +28,7 @@ Mobile installs and updates require all of these to be true:
 - The release has downloadable `manifest.json`, `main.js`, and `styles.css` assets.
 - The released `manifest.json` has `"isDesktopOnly": false`.
 - The released `manifest.json` has plugin id `calendar-importer`.
+- The released minimum Obsidian version does not unnecessarily exclude current desktop or mobile builds.
 - The Obsidian community plugin index points to `Efficient-X/Calendar-Importer`.
 - `main.js` does not use desktop-only APIs such as Electron, `fs`, `path`, or child processes.
 

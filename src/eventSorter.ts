@@ -3,7 +3,7 @@ import type { CalendarTaskSyncSettings, NormalizedCalendarEvent } from "./types"
 
 export function sortEvents(events: NormalizedCalendarEvent[], settings: CalendarTaskSyncSettings): NormalizedCalendarEvent[] {
   return [...events].sort((a, b) => {
-    const dateCompare = compareDateOnly(a.start, b.start, settings);
+    const dateCompare = compareDateOnly(a, b, settings);
     if (dateCompare !== 0) {
       return dateCompare;
     }
@@ -24,8 +24,8 @@ export function sortEvents(events: NormalizedCalendarEvent[], settings: Calendar
   });
 }
 
-function compareDateOnly(a: Date, b: Date, settings: CalendarTaskSyncSettings): number {
-  const left = toDateTime(a, settings.timezone).startOf("day").toMillis();
-  const right = toDateTime(b, settings.timezone).startOf("day").toMillis();
+function compareDateOnly(a: NormalizedCalendarEvent, b: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings): number {
+  const left = toDateTime(a.start, settings.timezone, a.allDay).startOf("day").toMillis();
+  const right = toDateTime(b.start, settings.timezone, b.allDay).startOf("day").toMillis();
   return left - right;
 }

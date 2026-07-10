@@ -47,6 +47,9 @@ $release = Invoke-WithRetry -Description "Release $Version" -Action {
 if ($release.draft -or $release.prerelease) {
   throw "Release $Version must be a published stable release."
 }
+if ([string]::IsNullOrWhiteSpace([string]$release.body)) {
+  throw "Release $Version must include a useful description."
+}
 
 $assetNames = @($release.assets | ForEach-Object { $_.name })
 foreach ($asset in $requiredAssets) {

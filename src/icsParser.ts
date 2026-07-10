@@ -20,13 +20,15 @@ export function parseIcsFeed(
   const errors: string[] = [];
   const events: NormalizedCalendarEvent[] = [];
   const repairedText = repairMalformedContentLines(icsText);
+  const calendarColor = normalizeColor(getCalendarLevelColor(repairedText));
+  const effectiveSource = calendarColor ? { ...source, color: calendarColor } : source;
 
   try {
     const parsed = parseCalendarComponents(repairedText);
-    events.push(...normalizeCalendarComponents(parsed.vevents, parsed.calendarTimezone, source, settings, window, errors));
+    events.push(...normalizeCalendarComponents(parsed.vevents, parsed.calendarTimezone, effectiveSource, settings, window, errors));
   } catch (error) {
     const recovered = recoverCalendarComponentsByEvent(repairedText, source, errors, error);
-    events.push(...normalizeCalendarComponents(recovered.vevents, recovered.calendarTimezone, source, settings, window, errors));
+    events.push(...normalizeCalendarComponents(recovered.vevents, recovered.calendarTimezone, effectiveSource, settings, window, errors));
   }
 
   return { events, errors };
@@ -55,7 +57,7 @@ export function repairMalformedContentLines(icsText: string): string {
     if (contentProperty) {
       if (
         lastAppendableIndex >= 0
-        && shouldTreatContentLineAsMalformedContinuation(contentProperty)
+        && shouldTreatContentLineAsMalformedContinuation(line, contentProperty)
       ) {
         repaired[lastAppendableIndex] = appendMalformedTextLine(
           repaired[lastAppendableIndex],
@@ -112,7 +114,7 @@ function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
 
   for (const component of vevents) {
     const event = new ICAL.Event(component);
-    const uid = stringValue(event.uid || component.getFirstPropertyValue("uid")) || cryptoSafeId();
+    const uid = getEventUid(event);
     const group = grouped.get(uid) ?? { masters: [], exceptions: [] };
     if (event.recurrenceId) {
       group.exceptions.push(event);
@@ -122,7 +124,47 @@ function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
     grouped.set(uid, group);
   }
 
+  for (const [uid, group] of grouped) {
+    grouped.set(uid, {
+      masters: dedupeEventRevisions(group.masters, () => "master"),
+      exceptions: dedupeEventRevisions(group.exceptions, (event) => icalTimeKey(event.recurrenceId)),
+    });
+  }
+
   return grouped;
+}
+
+function dedupeEventRevisions(events: ICAL.Event[], getKey: (event: ICAL.Event) => string): ICAL.Event[] {
+  const latest = new Map<string, ICAL.Event>();
+  for (const event of events) {
+    const key = getKey(event);
+    const previous = latest.get(key);
+    if (!previous || compareEventRevision(event, previous) >= 0) {
+      latest.set(key, event);
+    }
+  }
+  return [...latest.values()];
+}
+
+function compareEventRevision(left: ICAL.Event, right: ICAL.Event): number {
+  const sequenceDifference = getEventSequence(left) - getEventSequence(right);
+  if (sequenceDifference !== 0) {
+    return sequenceDifference;
+  }
+  return getEventRevisionTime(left) - getEventRevisionTime(right);
+}
+
+function getEventSequence(event: ICAL.Event): number {
+  const value = event.component.getFirstPropertyValue("sequence");
+  const sequence = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(sequence) ? sequence : 0;
+}
+
+function getEventRevisionTime(event: ICAL.Event): number {
+  const value = event.component.getFirstPropertyValue("last-modified")
+    ?? event.component.getFirstPropertyValue("dtstamp")
+    ?? event.component.getFirstPropertyValue("created");
+  return icalDateValueToDate(value)?.getTime() ?? 0;
 }
 
 function parseCalendarComponents(icsText: string): { calendarTimezone: string | undefined; vevents: ICAL.Component[] } {
@@ -351,8 +393,11 @@ function canAppendMalformedLine(line: string): boolean {
   ].includes(property);
 }
 
-function shouldTreatContentLineAsMalformedContinuation(property: string): boolean {
-  return !isKnownIcalendarProperty(property) && !property.startsWith("X-");
+function shouldTreatContentLineAsMalformedContinuation(line: string, property: string): boolean {
+  const originalProperty = line.match(/^([A-Za-z0-9-]+)(?:;[^:]*)?:/)?.[1] ?? "";
+  return !isKnownIcalendarProperty(property)
+    && !property.startsWith("X-")
+    && originalProperty !== originalProperty.toUpperCase();
 }
 
 function isComponentBoundary(property: string): boolean {
@@ -411,10 +456,12 @@ function decodeQuotedPrintableContentLine(line: string): string {
     return line;
   }
 
-  const propertyAndParams = line.slice(0, colonIndex)
+  const rawPropertyAndParams = line.slice(0, colonIndex);
+  const charset = rawPropertyAndParams.match(/(?:^|;)CHARSET="?([^";]+)"?/i)?.[1] ?? "utf-8";
+  const propertyAndParams = rawPropertyAndParams
     .replace(/;ENCODING="?QUOTED-PRINTABLE"?/ig, "");
   const value = line.slice(colonIndex + 1);
-  return `${propertyAndParams}:${escapeIcalendarTextValue(decodeQuotedPrintableValue(value))}`;
+  return `${propertyAndParams}:${escapeIcalendarTextValue(decodeQuotedPrintableValue(value, charset))}`;
 }
 
 function repairUnquotedUriTimezoneParams(lines: string[]): string[] {
@@ -449,7 +496,7 @@ function findContentSeparatorIndex(line: string): number {
   return line.indexOf(":");
 }
 
-function decodeQuotedPrintableValue(value: string): string {
+function decodeQuotedPrintableValue(value: string, charset: string): string {
   const bytes: number[] = [];
   let output = "";
 
@@ -457,7 +504,13 @@ function decodeQuotedPrintableValue(value: string): string {
     if (bytes.length === 0) {
       return;
     }
-    output += new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(bytes));
+    let decoder: TextDecoder;
+    try {
+      decoder = new TextDecoder(charset, { fatal: false });
+    } catch {
+      decoder = new TextDecoder("utf-8", { fatal: false });
+    }
+    output += decoder.decode(new Uint8Array(bytes));
     bytes.length = 0;
   };
 
@@ -480,12 +533,14 @@ function decodeQuotedPrintableValue(value: string): string {
 function escapeIcalendarTextValue(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
+    .replace(/([,;])/g, "\\$1")
     .replace(/\r\n|\r|\n/g, "\\n");
 }
 
 function isKnownIcalendarProperty(property: string): boolean {
   return [
     "ACTION",
+    "ACKNOWLEDGED",
     "ATTACH",
     "ATTENDEE",
     "BEGIN",
@@ -495,6 +550,7 @@ function isKnownIcalendarProperty(property: string): boolean {
     "COLOR",
     "COMMENT",
     "COMPLETED",
+    "CONFERENCE",
     "CONTACT",
     "CREATED",
     "DESCRIPTION",
@@ -509,20 +565,25 @@ function isKnownIcalendarProperty(property: string): boolean {
     "FREEBUSY",
     "GEO",
     "LAST-MODIFIED",
+    "IMAGE",
     "LOCATION",
     "METHOD",
+    "NAME",
     "ORGANIZER",
     "PERCENT-COMPLETE",
     "PRIORITY",
     "PRODID",
+    "PROXIMITY",
     "RDATE",
     "RECURRENCE-ID",
     "RELATED-TO",
     "REPEAT",
     "REQUEST-STATUS",
+    "REFRESH-INTERVAL",
     "RESOURCES",
     "RRULE",
     "SEQUENCE",
+    "SOURCE",
     "STATUS",
     "SUMMARY",
     "TRANSP",
@@ -550,6 +611,7 @@ function expandRecurringEvent(
 
   try {
     const iterator = event.iterator();
+    const masterDurationMs = Math.max(0, event.duration.toSeconds() * 1000);
     let next: ICAL.Time | null;
     let inspected = 0;
     let included = 0;
@@ -560,11 +622,11 @@ function expandRecurringEvent(
         break;
       }
 
-      const nextStart = next.toJSDate();
+      const nextStart = icalTimeToDate(next, calendarTimezone);
       if (nextStart >= window.end) {
         break;
       }
-      if (nextStart < window.start) {
+      if (nextStart < window.start && nextStart.getTime() + masterDurationMs <= window.start.getTime()) {
         continue;
       }
       if (included++ >= MAX_RECURRENCE_OCCURRENCES) {
@@ -660,12 +722,13 @@ function normalizeEvent(
   const start = icalTimeToDate(startTime, startTimezone);
   const end = endTime ? icalTimeToDate(endTime, endTimezone) : undefined;
   const instanceTime = recurrenceStart ?? event.recurrenceId ?? startTime;
-  const instanceId = `${source.id}:${event.uid}:${icalTimeKey(instanceTime)}`;
+  const uid = getEventUid(event);
+  const instanceId = `${source.id}:${uid}:${icalTimeKey(instanceTime)}`;
   const created = icalDateValueToDate(event.component.getFirstPropertyValue("created"));
   const lastModified = icalDateValueToDate(event.component.getFirstPropertyValue("last-modified"));
   const sequence = event.component.getFirstPropertyValue("sequence");
   const createdBy = getOrganizer(event.component);
-  const reminderStarts = getReminderStarts(event.component, start, settings);
+  const reminderStarts = getReminderStarts(event.component, start, end, settings);
   const color = normalizeColor(
     stringValue(event.component.getFirstPropertyValue("color"))
     || stringValue(event.component.getFirstPropertyValue("x-apple-calendar-color"))
@@ -678,7 +741,7 @@ function normalizeEvent(
     sourceId: source.id,
     sourceName: source.name,
     calendarName: source.sourceLabel || source.name,
-    uid: stringValue(event.uid) || "(missing uid)",
+    uid,
     instanceId,
     title: event.summary || "(Untitled event)",
     description: getEventDescription(event) || undefined,
@@ -747,14 +810,23 @@ function normalizeColor(value: string): string | undefined {
     blueberry: "#3f51b5",
     basil: "#0b8043",
     tomato: "#d50000",
+    turquoise: "#40e0d0",
   };
   const lower = trimmed.toLocaleLowerCase();
   if (named[lower]) {
     return named[lower];
   }
 
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
-    return trimmed;
+  if (/^[a-z]+$/i.test(trimmed) && typeof CSS !== "undefined" && CSS.supports("color", lower)) {
+    return lower;
+  }
+
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${[...trimmed.slice(1)].map((character) => character.repeat(2)).join("")}`;
+  }
+
+  if (/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(trimmed)) {
+    return trimmed.slice(0, 7);
   }
 
   if (/^[0-9a-f]{6}$/i.test(trimmed)) {
@@ -762,6 +834,40 @@ function normalizeColor(value: string): string | undefined {
   }
 
   return undefined;
+}
+
+function getCalendarLevelColor(icsText: string): string {
+  const lines = icsText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  let depth = 0;
+  let fallback = "";
+
+  for (const line of lines) {
+    if (/^BEGIN:/i.test(line)) {
+      depth += 1;
+      continue;
+    }
+    if (/^END:/i.test(line)) {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth !== 1) {
+      continue;
+    }
+    const separator = line.indexOf(":");
+    if (separator < 0) {
+      continue;
+    }
+    const property = line.slice(0, separator).split(";", 1)[0].toUpperCase();
+    const value = line.slice(separator + 1).trim();
+    if (property === "X-APPLE-CALENDAR-COLOR") {
+      return value;
+    }
+    if (property === "COLOR") {
+      fallback = value;
+    }
+  }
+
+  return fallback;
 }
 
 function getOrganizer(component: ICAL.Component): string | undefined {
@@ -805,7 +911,12 @@ function cleanOrganizerValue(value: string): string | undefined {
   return trimmed.replace(/^mailto:/i, "");
 }
 
-function getReminderStarts(component: ICAL.Component, eventStart: Date, settings: CalendarTaskSyncSettings): Date[] {
+function getReminderStarts(
+  component: ICAL.Component,
+  eventStart: Date,
+  eventEnd: Date | undefined,
+  settings: CalendarTaskSyncSettings,
+): Date[] {
   if (!settings.includeReminderTasks) {
     return [];
   }
@@ -814,14 +925,28 @@ function getReminderStarts(component: ICAL.Component, eventStart: Date, settings
   const reminders: Date[] = [];
 
   for (const alarm of component.getAllSubcomponents("valarm")) {
-    const trigger = alarm.getFirstPropertyValue("trigger");
-    const reminderStart = getReminderStart(trigger, eventStart);
+    const triggerProperty = alarm.getFirstProperty("trigger");
+    const trigger = triggerProperty?.getFirstValue();
+    const related = stringValue(triggerProperty?.getParameter("related")).toUpperCase();
+    const anchor = related === "END" && eventEnd ? eventEnd : eventStart;
+    const reminderStart = getReminderStart(trigger, anchor);
     if (!reminderStart) {
       continue;
     }
-    const leadMs = eventStart.getTime() - reminderStart.getTime();
-    if (leadMs >= minimumLeadMs) {
-      reminders.push(reminderStart);
+
+    const repeatValue = Number(alarm.getFirstPropertyValue("repeat") ?? 0);
+    const repeatCount = Number.isFinite(repeatValue) ? Math.max(0, Math.min(100, Math.trunc(repeatValue))) : 0;
+    const repeatDuration = alarm.getFirstPropertyValue("duration") as { toSeconds?: () => number } | null;
+    const repeatMs = typeof repeatDuration?.toSeconds === "function" ? repeatDuration.toSeconds() * 1000 : 0;
+    for (let repeatIndex = 0; repeatIndex <= repeatCount; repeatIndex += 1) {
+      const repeatedStart = new Date(reminderStart.getTime() + repeatIndex * repeatMs);
+      const leadMs = eventStart.getTime() - repeatedStart.getTime();
+      if (leadMs >= minimumLeadMs) {
+        reminders.push(repeatedStart);
+      }
+      if (repeatIndex > 0 && repeatMs === 0) {
+        break;
+      }
     }
   }
 
@@ -883,8 +1008,13 @@ function shouldIncludeEvent(event: NormalizedCalendarEvent, settings: CalendarTa
     return false;
   }
 
-  const end = event.end ?? event.start;
-  return end >= window.start && event.start < window.end;
+  if (event.start >= window.end) {
+    return false;
+  }
+  if (!event.end || event.end.getTime() <= event.start.getTime()) {
+    return event.start >= window.start;
+  }
+  return event.end > window.start;
 }
 
 function icalTimeKey(time: ICAL.Time): string {
@@ -987,11 +1117,35 @@ function getRawContentLineValue(lines: string[], propertyName: string): string {
 }
 
 function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return `${value}`;
+  }
+  if (
+    value instanceof ICAL.Time
+    || value instanceof ICAL.Duration
+    || value instanceof ICAL.Period
+    || value instanceof ICAL.UtcOffset
+  ) {
+    return value.toString();
+  }
+  return "";
 }
 
-function cryptoSafeId(): string {
-  return `missing-uid-${Math.random().toString(36).slice(2)}`;
+function getEventUid(event: ICAL.Event): string {
+  const uid = stringValue(event.uid || event.component.getFirstPropertyValue("uid")).trim();
+  return uid || `missing-uid-${stableHash(event.component.toString())}`;
+}
+
+function stableHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function errorMessage(error: unknown): string {

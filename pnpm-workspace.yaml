@@ -2,3 +2,6 @@ allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
   - esbuild
+peerDependencyRules:
+  allowedVersions:
+    obsidian: 1.13.1

@@ -53,14 +53,11 @@ export interface CalendarTaskSyncSettings {
   minimumReminderLeadDays: number;
   tags: string;
   sourceTag: string;
-  dryRunPreview: boolean;
   preserveManualCompletion: boolean;
   backupBeforeSync: boolean;
-  debugLogging: boolean;
   lastSyncTime: string;
   lastSyncResult: string;
   lastError: string;
-  lastPreview: string;
   syncCache: Record<string, SyncCacheEntry>;
 }
 
@@ -69,6 +66,7 @@ export interface SyncCacheEntry {
   rendered: string;
   completed?: boolean;
   lastSeen: string;
+  notePath?: string;
 }
 
 export interface NormalizedCalendarEvent {
@@ -111,11 +109,6 @@ export interface ParseWindow {
   end: Date;
 }
 
-export interface SyncOptions {
-  dryRun: boolean;
-  trigger: string;
-}
-
 export interface SyncResult {
   success: boolean;
   skipped: boolean;
@@ -123,7 +116,6 @@ export interface SyncResult {
   notePath?: string;
   message: string;
   errors: string[];
-  preview?: string;
   changeSummary?: SyncChangeSummary;
 }
 

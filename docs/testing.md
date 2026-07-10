@@ -11,6 +11,8 @@ Here is the quick test lap:
 - Try an event with a location or description.
 - Confirm private feed links are not shown in normal status messages.
 - Confirm Tasks queries can find imported events.
+- Disconnect the network, run a sync, and confirm the last good tasks remain untouched.
+- On iPhone, iPad, or Android, install or update through Community Plugins and run one sync while Obsidian is active.
 
 If something feels off, please include:
 

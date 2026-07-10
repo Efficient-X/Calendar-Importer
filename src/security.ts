@@ -31,3 +31,7 @@ export function normalizeFeedUrl(url: string): string {
 export function isLikelyIcs(content: string): boolean {
   return /BEGIN:VCALENDAR/i.test(content) && /END:VCALENDAR/i.test(content);
 }
+
+export function redactSensitiveUrls(message: string): string {
+  return message.replace(/\b(?:https?|webcals?):\/\/[^\s<>'"`]+/gi, "<calendar URL>");
+}

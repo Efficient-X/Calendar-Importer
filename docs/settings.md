@@ -16,11 +16,13 @@ The settings page shows a quick checklist:
 2. Run `Sync now`.
 3. Open your calendar note.
 
-Once all four are done, you are basically operating a tiny calendar conveyor belt. Nice.
+Once all three are done, you are basically operating a tiny calendar conveyor belt. Nice.
 
 ## Quick Actions
 
 `Sync now` updates your calendar note immediately.
+
+`Open calendar note` takes you straight to the destination note without making you hunt through folders.
 
 Handy tip: bind `Calendar Importer: Sync now` to a hotkey if you use it often.
 
@@ -84,3 +86,5 @@ You can keep completed tasks forever or trim them after a set number of days.
 ### Debug
 
 Debug is for troubleshooting. Most people can leave it closed and enjoy a peaceful life.
+
+If any feed fails to download or parse, Calendar Importer stops before changing notes. A flaky connection should be mildly annoying, not an excuse for your existing calendar tasks to vanish.

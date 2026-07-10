@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.0
+
+Reliability and cross-platform hardening release.
+
+- Stop safely before changing notes when any enabled feed fails to download or parse, and keep the last good tasks when the network is flaky.
+- Update notes through Obsidian's atomic `Vault.process()` API so edits made during a sync are not silently overwritten.
+- Keep daily-note sync caches isolated by note instead of replacing one note's completion history with another's.
+- Preserve all-day calendar dates in every timezone, including regions west of UTC, and respect iCalendar's exclusive event end boundary.
+- Handle recurring events that begin before the sync window but still overlap it.
+- Deduplicate provider revisions by sequence and modification time, and generate stable fallback IDs when a malformed event omits `UID`.
+- Support `RELATED=END` and repeating iCalendar alarms, legacy quoted-printable character sets, Apple calendar-level colours, alpha-suffixed Apple hex colours, and modern iCalendar extension properties.
+- Redact private calendar URLs embedded inside network errors and reject feeds above a 25 MB parsing safety limit.
+- Recover safely from malformed or partially corrupted `data.json` values, duplicate feed IDs, invalid timezones, and conflicting headings.
+- Debounce settings-triggered syncs, serialize settings saves, defer startup sync until the workspace is ready, and avoid unnecessary or colliding backups.
+- Add `Open calendar note` to the command palette and basic settings actions.
+- Remove the leftover preview path and a non-functional debug toggle so retired features cannot drift back into the plugin.
+- Lower the minimum compatible Obsidian version from 1.13.0 to 1.7.2 after API validation, restoring Community Plugins installs and updates on current desktop and mobile builds.
+- Add strict TypeScript, official Obsidian plugin linting, release metadata validation, dependency auditing, pinned GitHub Actions, private security reporting, and 76 regression tests.
+- Remove unused production and development dependencies.
+
 ## 1.0.16
 
 Apple structured location fallback.
