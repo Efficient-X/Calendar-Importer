@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.12
+
+Provider compatibility sweep.
+
+- Use `X-WR-TIMEZONE` as the fallback timezone for floating event times, which helps Google, Zoho, and other feeds that publish calendar-level timezone metadata.
+- Map common Microsoft/Windows timezone names to IANA timezones when a feed omits a usable `VTIMEZONE`.
+- Repair unquoted Microsoft `TZID=tzone://Microsoft/Custom` date parameters before strict iCalendar parsing.
+- Add regression tests for floating calendar timezones, Microsoft Windows timezone names, and Microsoft custom timezone URI parameters.
+
 ## 1.0.11
 
 Multiline calendar text repair release.

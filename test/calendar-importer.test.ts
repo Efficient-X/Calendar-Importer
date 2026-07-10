@@ -389,6 +389,70 @@ END:VEVENT
     expect(result.events[0].location).toBe("123 Main StreetAnytownCA 90210");
   });
 
+  it("uses X-WR-TIMEZONE for floating calendar event times", () => {
+    const result = parseIcsFeed([
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Calendar Importer//Tests//EN",
+      "X-WR-TIMEZONE:America/New_York",
+      "BEGIN:VEVENT",
+      "UID:x-wr-floating-time",
+      "SUMMARY:New York appointment",
+      "DTSTART:20260716T090000",
+      "DTEND:20260716T100000",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n"), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].start.toISOString()).toBe("2026-07-16T13:00:00.000Z");
+    expect(result.events[0].end?.toISOString()).toBe("2026-07-16T14:00:00.000Z");
+  });
+
+  it("maps common Microsoft Windows timezone names when no VTIMEZONE is supplied", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:windows-timezone-name
+SUMMARY:Microsoft appointment
+DTSTART;TZID=Eastern Standard Time:20260716T090000
+DTEND;TZID=Eastern Standard Time:20260716T100000
+END:VEVENT
+`), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].start.toISOString()).toBe("2026-07-16T13:00:00.000Z");
+  });
+
+  it("repairs unquoted Microsoft tzone URI parameters before parsing", () => {
+    const result = parseIcsFeed([
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Calendar Importer//Tests//EN",
+      "BEGIN:VTIMEZONE",
+      "TZID:tzone://Microsoft/Custom",
+      "BEGIN:STANDARD",
+      "DTSTART:20260101T000000",
+      "TZOFFSETFROM:+1100",
+      "TZOFFSETTO:+1000",
+      "TZNAME:AEST",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "UID:microsoft-tzone-uri",
+      "SUMMARY:Microsoft custom timezone",
+      "DTSTART;TZID=tzone://Microsoft/Custom:20260716T090000",
+      "DTEND;TZID=tzone://Microsoft/Custom:20260716T100000",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n"), feed, settings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].start.toISOString()).toBe("2026-07-15T23:00:00.000Z");
+  });
+
 });
 
 describe("feed URL handling", () => {

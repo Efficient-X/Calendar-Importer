@@ -1,4 +1,5 @@
 import ICAL from "ical.js";
+import { DateTime } from "luxon";
 import type { CalendarFeedSetting, CalendarTaskSyncSettings, NormalizedCalendarEvent, ParsedFeedResult, ParseWindow } from "./types";
 
 const MAX_RECURRENCE_ITERATIONS = 25000;
@@ -25,6 +26,7 @@ export function parseIcsFeed(
       throw new Error("Parsed calendar did not contain a valid jCal component.");
     }
     const calendar = new ICAL.Component(jcal);
+    const calendarTimezone = normalizeTimezoneId(stringValue(calendar.getFirstPropertyValue("x-wr-timezone")));
     const vevents = calendar.getAllSubcomponents("vevent");
     const grouped = groupEventsByUid(vevents);
 
@@ -39,9 +41,9 @@ export function parseIcsFeed(
         }
 
         if (master.isRecurring()) {
-          events.push(...expandRecurringEvent(master, source, settings, window, errors));
+          events.push(...expandRecurringEvent(master, source, settings, window, errors, calendarTimezone));
         } else {
-          const normalized = normalizeEvent(master, master.startDate, master.endDate, source, settings);
+          const normalized = normalizeEvent(master, master.startDate, master.endDate, source, settings, undefined, calendarTimezone);
           if (normalized && shouldIncludeEvent(normalized, settings, window)) {
             events.push(...expandEventAndReminders(normalized, settings, window));
           }
@@ -50,7 +52,7 @@ export function parseIcsFeed(
 
       if (group.masters.length === 0) {
         for (const orphan of group.exceptions) {
-          const normalized = normalizeEvent(orphan, orphan.startDate, orphan.endDate, source, settings);
+          const normalized = normalizeEvent(orphan, orphan.startDate, orphan.endDate, source, settings, undefined, calendarTimezone);
           if (normalized && shouldIncludeEvent(normalized, settings, window)) {
             events.push(...expandEventAndReminders(normalized, settings, window));
           }
@@ -136,7 +138,7 @@ export function repairMalformedContentLines(icsText: string): string {
     );
   }
 
-  return decodeQuotedPrintableContentLines(repaired).join("\r\n");
+  return decodeQuotedPrintableContentLines(repairUnquotedUriTimezoneParams(repaired)).join("\r\n");
 }
 
 function groupEventsByUid(vevents: ICAL.Component[]): Map<string, EventGroup> {
@@ -247,6 +249,38 @@ function decodeQuotedPrintableContentLine(line: string): string {
   return `${propertyAndParams}:${escapeIcalendarTextValue(decodeQuotedPrintableValue(value))}`;
 }
 
+function repairUnquotedUriTimezoneParams(lines: string[]): string[] {
+  return lines.map((line) => {
+    const colonIndex = findContentSeparatorIndex(line);
+    if (colonIndex < 0) {
+      return line;
+    }
+
+    const propertyAndParams = line.slice(0, colonIndex);
+    const value = line.slice(colonIndex + 1);
+    const repaired = propertyAndParams.replace(
+      /TZID=([^";:]+:\/\/[^";:]*)/i,
+      (_match, timezoneId: string) => `TZID="${timezoneId}"`,
+    );
+    return `${repaired}:${value}`;
+  });
+}
+
+function findContentSeparatorIndex(line: string): number {
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === "\"") {
+      quoted = !quoted;
+      continue;
+    }
+    if (char === ":" && !quoted && /^\d{8}(?:T\d{6}Z?)?$/.test(line.slice(index + 1))) {
+      return index;
+    }
+  }
+  return line.indexOf(":");
+}
+
 function decodeQuotedPrintableValue(value: string): string {
   const bytes: number[] = [];
   let output = "";
@@ -342,6 +376,7 @@ function expandRecurringEvent(
   settings: CalendarTaskSyncSettings,
   window: ParseWindow,
   errors: string[],
+  calendarTimezone: string | undefined,
 ): NormalizedCalendarEvent[] {
   const occurrences: NormalizedCalendarEvent[] = [];
 
@@ -372,7 +407,7 @@ function expandRecurringEvent(
       const details = event.getOccurrenceDetails(next);
       const occurrenceStart = details.startDate;
       const occurrenceEnd = details.endDate;
-      const normalized = normalizeEvent(details.item, occurrenceStart, occurrenceEnd, source, settings, next);
+      const normalized = normalizeEvent(details.item, occurrenceStart, occurrenceEnd, source, settings, next, calendarTimezone);
       if (normalized && shouldIncludeEvent(normalized, settings, window)) {
         occurrences.push(...expandEventAndReminders(normalized, settings, window));
       }
@@ -436,6 +471,7 @@ function normalizeEvent(
   source: CalendarFeedSetting,
   settings: CalendarTaskSyncSettings,
   recurrenceStart?: ICAL.Time,
+  calendarTimezone?: string,
 ): NormalizedCalendarEvent | null {
   if (!startTime) {
     return null;
@@ -451,8 +487,10 @@ function normalizeEvent(
     return null;
   }
 
-  const start = icalTimeToDate(startTime);
-  const end = endTime ? icalTimeToDate(endTime) : undefined;
+  const startTimezone = getPropertyTimezone(event.component, "dtstart") || calendarTimezone;
+  const endTimezone = getPropertyTimezone(event.component, "dtend") || startTimezone;
+  const start = icalTimeToDate(startTime, startTimezone);
+  const end = endTime ? icalTimeToDate(endTime, endTimezone) : undefined;
   const instanceTime = recurrenceStart ?? event.recurrenceId ?? startTime;
   const instanceId = `${source.id}:${event.uid}:${icalTimeKey(instanceTime)}`;
   const created = icalDateValueToDate(event.component.getFirstPropertyValue("created"));
@@ -666,9 +704,54 @@ function icalTimeKey(time: ICAL.Time): string {
   return time.toString();
 }
 
-function icalTimeToDate(time: ICAL.Time): Date {
+function getPropertyTimezone(component: ICAL.Component, propertyName: string): string | undefined {
+  const property = component.getFirstProperty(propertyName);
+  return normalizeTimezoneId(stringValue(property?.getParameter("tzid")));
+}
+
+function normalizeTimezoneId(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const windowsTimezones: Record<string, string> = {
+    "aus eastern standard time": "Australia/Sydney",
+    "e. australia standard time": "Australia/Brisbane",
+    "cen. australia standard time": "Australia/Adelaide",
+    "w. australia standard time": "Australia/Perth",
+    "tasmania standard time": "Australia/Hobart",
+    "new zealand standard time": "Pacific/Auckland",
+    "gmt standard time": "Europe/London",
+    "greenwich standard time": "Etc/GMT",
+    "w. europe standard time": "Europe/Berlin",
+    "central european standard time": "Europe/Warsaw",
+    "romance standard time": "Europe/Paris",
+    "eastern standard time": "America/New_York",
+    "central standard time": "America/Chicago",
+    "mountain standard time": "America/Denver",
+    "pacific standard time": "America/Los_Angeles",
+  };
+  const mapped = windowsTimezones[trimmed.toLocaleLowerCase()] ?? trimmed;
+  return DateTime.local().setZone(mapped).isValid ? mapped : undefined;
+}
+
+function icalTimeToDate(time: ICAL.Time, timezone?: string): Date {
   if (time.isDate) {
     return new Date(Date.UTC(time.year, time.month - 1, time.day));
+  }
+  if (timezone && time.zone.tzid === "floating") {
+    const zoned = DateTime.fromObject({
+      year: time.year,
+      month: time.month,
+      day: time.day,
+      hour: time.hour,
+      minute: time.minute,
+      second: time.second,
+    }, { zone: timezone });
+    if (zoned.isValid) {
+      return zoned.toJSDate();
+    }
   }
   return time.toJSDate();
 }
