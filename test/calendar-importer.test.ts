@@ -415,6 +415,24 @@ END:VEVENT
     expect(renderEventTask(result.events[0], locationSettings)).toContain("Shop 1 Willoughby NSW 2068");
   });
 
+  it("uses Apple structured location titles when no plain location is supplied", () => {
+    const locationSettings = { ...settings, includeLocations: true };
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:apple-structured-location
+SUMMARY:Lunch
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-TITLE=Willoughby Cafe:geo:-33.801,151.200
+DTSTART:20260716T090000Z
+DTEND:20260716T093000Z
+END:VEVENT
+`), feed, locationSettings, window);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBe("Willoughby Cafe");
+    expect(renderEventTask(result.events[0], locationSettings)).toContain("Willoughby Cafe");
+  });
+
   it("repairs raw multiline descriptions that are not valid folded iCalendar", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT

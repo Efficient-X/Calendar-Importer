@@ -682,7 +682,7 @@ function normalizeEvent(
     instanceId,
     title: event.summary || "(Untitled event)",
     description: getEventDescription(event) || undefined,
-    location: event.location || undefined,
+    location: getEventLocation(event) || undefined,
     start,
     end,
     allDay,
@@ -785,6 +785,16 @@ function getEventDescription(event: ICAL.Event): string {
   }
 
   return stringValue(event.component.getFirstPropertyValue("x-alt-desc")).trim();
+}
+
+function getEventLocation(event: ICAL.Event): string {
+  const plain = stringValue(event.location).trim();
+  if (plain) {
+    return plain;
+  }
+
+  const structuredLocation = event.component.getFirstProperty("x-apple-structured-location");
+  return stringValue(structuredLocation?.getParameter("x-title")).trim();
 }
 
 function cleanOrganizerValue(value: string): string | undefined {

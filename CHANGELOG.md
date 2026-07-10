@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.16
+
+Apple structured location fallback.
+
+- Use the `X-TITLE` value from Apple `X-APPLE-STRUCTURED-LOCATION` fields when an iCloud event does not provide a plain `LOCATION`.
+- Keep plain `LOCATION` as the preferred value when it exists.
+- Add a regression test for iCloud-style structured location titles.
+
 ## 1.0.15
 
 HTML invite description fallback.
