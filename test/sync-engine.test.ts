@@ -292,4 +292,55 @@ describe("sync write safety", () => {
     expect(content).not.toContain("- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16");
     expect(Object.values(settings.syncCache)).toHaveLength(0);
   });
+
+  it("does not rebuild completed events when Tasks moves tags before the due date", async () => {
+    let content = [
+      "## My Calendar Events",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Safe update - Thursday - 09:00-10:00 #Work 📅 2026-07-16 ✅ 2026-07-17",
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: {
+        getLeavesOfType: vi.fn(() => []),
+      },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true, tags: "#Work" }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(content).toContain("## Completed Calendar Tasks\n- [x] Safe update - Thursday - 09:00-10:00 #Work 📅 2026-07-16 ✅ 2026-07-17");
+    expect(content).not.toContain("- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16 #Work");
+    expect(Object.values(settings.syncCache)).toHaveLength(0);
+  });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.7
+
+- Stop completed calendar events from reappearing when the Tasks plugin moves source tags before the due-date marker on checked tasks.
+- Match completed and active calendar tasks by their stable task text while ignoring source tag order, so `#Calendar 📅 2026-07-11` and `📅 2026-07-11 #Calendar` are treated as the same event.
+- Add regression tests using the exact completed-task shape seen in live vault testing.
+
 ## 1.1.6
 
 - Give Obsidian and Tasks checkbox updates a short moment to settle before Calendar Importer reads and rebuilds the calendar note.

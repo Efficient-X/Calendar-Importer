@@ -194,6 +194,7 @@ export function getTaskIdentity(taskLine: string): string {
     .replace(/<span\b[^>]*(?:calendar-importer-swatch|calendar-task-sync-swatch)[^>]*>.*?<\/span>\s*/gi, "")
     .replace(/\s+\u2705\s+\d{4}-\d{2}-\d{2}(?=\s|$)/gu, "")
     .replace(/\s+\|\s+(?:Created by|Created|Modified)\b.*$/u, "")
+    .replace(/(^|\s)#[^\s#]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

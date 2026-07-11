@@ -999,6 +999,20 @@ describe("note block management", () => {
     expect(getTaskIdentity(checked)).toBe(getTaskIdentity(unchecked));
   });
 
+  it("matches task identity when Tasks moves the source tag before the date marker", () => {
+    const checked = "- [x] <span class=\"calendar-importer-swatch\" style=\"color:#3b82f6\">■</span> B - Will - 1430 - Wednesday - 16:30-17:30 #BGmail 📅 2026-07-08 ✅ 2026-07-11";
+    const unchecked = "- [ ] <span class=\"calendar-importer-swatch\" style=\"color:#3b82f6\">■</span> B - Will - 1430 - Wednesday - 16:30-17:30 📅 2026-07-08 #BGmail";
+
+    expect(getTaskIdentity(checked)).toBe(getTaskIdentity(unchecked));
+  });
+
+  it("matches completed legacy metadata lines against current simplified task lines", () => {
+    const checked = "- [x] <span class=\"calendar-task-sync-swatch\" style=\"color:#f97316\">■</span> T - Weekend - Saturday - All day 📅 2026-07-11 #TBCarraro | Created 2026-06-03 11:17; Modified 2026-06-11 16:01 ✅ 2026-07-09";
+    const unchecked = "- [ ] <span class=\"calendar-importer-swatch\" style=\"color:#a855f7\">■</span> T - Weekend - Saturday - All day #TBCarGmail 📅 2026-07-11";
+
+    expect(getTaskIdentity(checked)).toBe(getTaskIdentity(unchecked));
+  });
+
   it("normalizes legacy broken symbols before comparing task text", () => {
     const broken = "- [x] Done task Ã°Å¸â€œâ€¦ 2026-07-16 Ã¢Å“â€¦ 2026-07-18 #ExampleCalendar";
     const fixed = "- [ ] Done task 📅 2026-07-16 #ExampleCalendar";
