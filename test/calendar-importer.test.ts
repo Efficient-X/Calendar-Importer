@@ -1118,20 +1118,19 @@ describe("note block management", () => {
     expect(completed[getTaskIdentity(eventLine)]).toBe(completedLine);
   });
 
-  it("uses the stable inline event ID to preserve completion without a colour swatch", () => {
+  it("can read and clean legacy inline event IDs", () => {
     const eventId = "primary:event-123:20260716T090000Z";
     const completedLine = `- [x] Old title <!-- calendar-importer:event ${encodeURIComponent(eventId)} -->`;
     const completed = extractCompletedTaskLines(`## Completed Calendar Tasks\n${completedLine}\n`, settings);
 
     expect(completed[eventId]).toBe(completedLine);
+    expect(prepareCompletedTaskLines([completedLine], settings)).toEqual(["- [x] Old title"]);
   });
 
-  it("adds a stable event ID only when rendering a managed task", () => {
+  it("does not render hidden event IDs into task lines", () => {
     const event = makeEvent({ instanceId: "primary:event-123:20260716T090000Z" });
 
     expect(renderEventTask(event, { ...settings, includeColorSwatch: false })).not.toContain("calendar-importer:event");
-    expect(renderEventTask(event, { ...settings, includeColorSwatch: false }, false, true))
-      .toContain("<!-- calendar-importer:event primary%3Aevent-123%3A20260716T090000Z -->");
   });
 
   it("matches task identity regardless of rendered colour swatches", () => {

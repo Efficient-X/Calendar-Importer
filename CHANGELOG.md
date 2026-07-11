@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.4
+
+- Stop writing hidden calendar event markers into task lines so Obsidian no longer shows green source-code comments beside imported events.
+- Clean legacy `calendar-importer:event` comments from active and completed task lines during the next sync.
+- Keep completed-task protection for normal checked-task syncs through task identity and sync cache matching.
+
 ## 1.1.3
 
 - fixed a bug where completed tasks were not moved to the completed task section while syncing.

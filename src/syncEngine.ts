@@ -295,7 +295,7 @@ export class CalendarTaskSyncEngine {
     // Cache every live feed event first; completed events are filtered from this set below.
     const downloadedCalendar = events.map((event) => ({
       event,
-      uncheckedLine: renderEventTask(event, settings, false, true),
+      uncheckedLine: renderEventTask(event, settings),
     }));
     const activeLines: { key: string; line: string }[] = [];
     const completedArchiveLines = [...existingCompletedSectionLines];

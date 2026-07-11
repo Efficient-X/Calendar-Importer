@@ -25,7 +25,7 @@ interface HeadingRange {
 }
 
 export function buildManagedBlock(items: ManagedTaskLine[], settings: CalendarTaskSyncSettings): string {
-  const taskLines = items.map((item) => item.line);
+  const taskLines = items.map((item) => removeCalendarImporterEventMarkers(item.line));
   const lines = settings.showManagedBlockMarkers
     ? [settings.startMarker, ...taskLines, settings.endMarker]
     : taskLines;
@@ -146,6 +146,7 @@ export function prepareCompletedTaskLines(
     : null;
 
   return dedupeLines(completedLines.filter((line) => line.trim()).map(normalizeTaskSymbols))
+    .map(removeCalendarImporterEventMarkers)
     .filter((line) => {
       if (!cutoff) {
         return true;
@@ -189,7 +190,7 @@ function extractCompletedTaskLinesFromText(block: string): Record<string, string
 export function getTaskIdentity(taskLine: string): string {
   return normalizeTaskSymbols(taskLine)
     .replace(/^\s*[-*+]\s+\[[ xX]\]\s*/, "")
-    .replace(/\s*<!-- calendar-importer:event\s+[^\s]+\s*-->/giu, "")
+    .replace(calendarImporterEventMarkerPattern(), "")
     .replace(/<span\b[^>]*(?:calendar-importer-swatch|calendar-task-sync-swatch)[^>]*>.*?<\/span>\s*/gi, "")
     .replace(/\s+\u2705\s+\d{4}-\d{2}-\d{2}(?=\s|$)/gu, "")
     .replace(/\s+\|\s+(?:Created by|Created|Modified)\b.*$/u, "")
@@ -271,6 +272,14 @@ function extractSectionBodies(content: string, heading: string): string[] {
   return findHeadingRanges(content, heading)
     .map((range) => content.slice(range.bodyStart, range.sectionEnd).trim())
     .filter(Boolean);
+}
+
+function removeCalendarImporterEventMarkers(value: string): string {
+  return value.replace(calendarImporterEventMarkerPattern(), "").trimEnd();
+}
+
+function calendarImporterEventMarkerPattern(): RegExp {
+  return /\s*<!-- calendar-importer:event\s+[^\s]+\s*-->/giu;
 }
 
 function parseStableEventId(line: string): string | null {

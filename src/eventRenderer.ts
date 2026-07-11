@@ -38,7 +38,6 @@ export function renderEventTask(
   event: NormalizedCalendarEvent,
   settings: CalendarTaskSyncSettings,
   completed = false,
-  includeEventMarker = false,
 ): string {
   const prefix = completed ? settings.taskPrefix.replace(/\[\s\]/, "[x]") : settings.taskPrefix;
   const body = renderTemplate(event, settings);
@@ -46,10 +45,7 @@ export function renderEventTask(
   const tags = [settings.tags, settings.sourceTag, event.tags].map((tag) => tag?.trim() ?? "").filter(Boolean).join(" ");
   const line = `${prefix} ${body}${tags ? ` ${tags}` : ""}${buildMetadataSuffix(event, settings)}`;
   const withSwatch = swatch && !body.includes(swatch) ? line.replace(`${prefix} `, `${prefix} ${swatch} `) : line;
-  const withEventMarker = includeEventMarker
-    ? `${withSwatch} <!-- calendar-importer:event ${encodeURIComponent(event.instanceId)} -->`
-    : withSwatch;
-  return normalizeTaskLine(withEventMarker, settings.collapseWhitespace);
+  return normalizeTaskLine(withSwatch, settings.collapseWhitespace);
 }
 
 export function renderTemplate(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings): string {

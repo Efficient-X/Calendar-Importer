@@ -109,7 +109,7 @@ describe("sync write safety", () => {
     const eventId = "work:sync-test:2026-07-16T09:00:00Z";
     let content = [
       "## My Calendar Events",
-      `- [x] Safe update <!-- calendar-importer:event ${encodeURIComponent(eventId)} -->`,
+      `- [x] Safe update - Thursday - 09:00-10:00 📅 2026-07-16 <!-- calendar-importer:event ${encodeURIComponent(eventId)} -->`,
       "",
       "## Completed Calendar Tasks",
       "",
@@ -155,10 +155,12 @@ describe("sync write safety", () => {
 
     expect(result.success).toBe(true);
     expect(result.changeSummary?.completedMoved).toBe(1);
-    expect(content).toContain("## Completed Calendar Tasks\n- [x] Safe update");
-    expect(content).not.toContain("- [ ] Safe update");
+    expect(content).toContain("## Completed Calendar Tasks\n- [x] Safe update - Thursday - 09:00-10:00 📅 2026-07-16");
+    expect(content).not.toContain("- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16");
     expect(content).toContain("## My Calendar Events\n- [ ] Still active");
+    expect(content).not.toContain("calendar-importer:event");
     expect(Object.values(settings.syncCache)).toHaveLength(1);
     expect(Object.values(settings.syncCache)[0].rendered).toContain("Still active");
+    expect(Object.values(settings.syncCache)[0].rendered).not.toContain("calendar-importer:event");
   });
 });
