@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
   taskTemplate: DEFAULT_TASK_TEMPLATE,
   detailPlacement: "before-date",
   showManagedBlockMarkers: false,
+  taskLayout: "classic",
   completedTaskMode: "move-to-completed-section",
   completedHeading: "## Completed Calendar Tasks",
   completedRetentionDays: 0,

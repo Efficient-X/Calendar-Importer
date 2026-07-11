@@ -343,4 +343,172 @@ describe("sync write safety", () => {
     expect(content).not.toContain("- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16 #Work");
     expect(Object.values(settings.syncCache)).toHaveLength(0);
   });
+
+  it("keeps completed tasks checked in chronological layout", async () => {
+    let content = [
+      "## My Calendar Events",
+      "- [x] Safe update - Thursday - 09:00-10:00 #Work ðŸ“… 2026-07-16 âœ… 2026-07-17",
+      "- [ ] Still active - Friday - 09:00-10:00 ðŸ“… 2026-07-17 #Work",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Old classic item - Wednesday - All day #Work ðŸ“… 2026-07-15 âœ… 2026-07-15",
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      taskLayout: "chronological",
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true, tags: "#Work" }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        "UID:still-active",
+        "SUMMARY:Still active",
+        "DTSTART:20260717T090000Z",
+        "DTEND:20260717T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(content).toContain("## My Calendar Events\n- [x] Safe update - Thursday - 09:00-10:00");
+    expect(content).toContain("- [ ] Still active - Friday - 09:00-10:00");
+    expect(content).not.toContain("## Completed Calendar Tasks");
+    expect(content).not.toContain("Old classic item");
+    expect(Object.values(settings.syncCache)).toHaveLength(2);
+    expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(true);
+  });
+
+  it("allows tasks to be unchecked again in chronological layout", async () => {
+    let content = [
+      "## My Calendar Events",
+      "- [ ] Safe update - Thursday - 09:00-10:00 ðŸ“… 2026-07-16 #Work",
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      taskLayout: "chronological",
+      syncCache: {
+        "work:sync-test:2026-07-16T09:00:00Z": {
+          key: "work:sync-test:2026-07-16T09:00:00Z",
+          rendered: "- [x] Safe update - Thursday - 09:00-10:00 ðŸ“… 2026-07-16 #Work",
+          completed: true,
+          lastSeen: "2026-07-17T00:00:00.000Z",
+          notePath: "Calendar/My Calendar Events.md",
+        },
+      },
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true, tags: "#Work" }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(content).toContain("## My Calendar Events\n- [ ] Safe update - Thursday - 09:00-10:00");
+    expect(content).not.toContain("- [x] Safe update");
+    expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(false);
+  });
+
+  it("migrates completed classic tasks into the one chronological list", async () => {
+    let content = [
+      "## My Calendar Events",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Safe update - Thursday - 09:00-10:00 #Work ðŸ“… 2026-07-16 âœ… 2026-07-17",
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      taskLayout: "chronological",
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true, tags: "#Work" }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(content).toContain("## My Calendar Events\n- [x] Safe update - Thursday - 09:00-10:00");
+    expect(content).not.toContain("## Completed Calendar Tasks");
+    expect(Object.values(settings.syncCache)).toHaveLength(1);
+    expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(true);
+  });
 });

@@ -378,6 +378,18 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
+      .setName("Calendar task layout")
+      .setDesc("Classic moves checked tasks to a completed section. Chronological keeps every event under one heading in date order, so you can tick and untick in place.")
+      .addDropdown((dropdown) => dropdown
+        .addOption("classic", "Classic")
+        .addOption("chronological", "Chronological")
+        .setValue(this.plugin.settings.taskLayout)
+        .onChange(async (value) => {
+          this.plugin.settings.taskLayout = value === "chronological" ? "chronological" : "classic";
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
       .setName("Completed tasks heading")
       .setDesc("Checked calendar tasks can be moved here on the next sync.")
       .addText((text) => {

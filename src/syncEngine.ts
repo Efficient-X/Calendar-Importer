@@ -10,6 +10,7 @@ import {
   extractCompletedTaskLines,
   getTaskIdentity,
   moveCompletedTasksToCompletedSection,
+  removeCompletedTaskSection,
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "./noteWriter";
@@ -267,6 +268,10 @@ export class CalendarTaskSyncEngine {
     existing: string,
     filtered: number,
   ): { plan: BuildNotePlan; content: string } {
+    if (settings.taskLayout === "chronological") {
+      return this.prepareChronologicalNoteUpdate(path, events, settings, existing, filtered);
+    }
+
     const completionMove = settings.completedTaskMode === "move-to-completed-section"
       ? moveCompletedTasksToCompletedSection(existing, settings)
       : undefined;
@@ -278,6 +283,83 @@ export class CalendarTaskSyncEngine {
       ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
       : activeReplacement;
     return { plan, content: completedReplacement.content };
+  }
+
+  private prepareChronologicalNoteUpdate(
+    path: string,
+    events: NormalizedCalendarEvent[],
+    settings: CalendarTaskSyncSettings,
+    existing: string,
+    filtered: number,
+  ): { plan: BuildNotePlan; content: string } {
+    const completedLines = settings.preserveManualCompletion ? extractCompletedTaskLines(existing, settings) : {};
+    const plan = this.buildChronologicalNotePlan(path, events, settings, completedLines, filtered);
+    const withoutCompletedSection = removeCompletedTaskSection(existing, settings).content;
+    const activeReplacement = replaceManagedBlock(withoutCompletedSection, plan.activeBlock, settings);
+    return { plan, content: activeReplacement.content };
+  }
+
+  private buildChronologicalNotePlan(
+    notePath: string,
+    events: NormalizedCalendarEvent[],
+    settings: CalendarTaskSyncSettings,
+    completedLines: Record<string, string>,
+    filtered: number,
+  ): BuildNotePlan {
+    const summary = emptySummary(filtered);
+    const currentKeys = new Set(events.map((event) => event.instanceId));
+    const scoped = prepareScopedSyncCache(settings.syncCache, notePath, currentKeys, settings.useDailyNotes);
+    const scopedCache = scoped.current;
+    const nextCache: Record<string, SyncCacheEntry> = scoped.next;
+    const activeLines: { key: string; line: string }[] = [];
+    const seenAt = new Date().toISOString();
+
+    for (const event of events) {
+      const uncheckedLine = renderEventTask(event, settings);
+      const checkedLine = renderEventTask(event, settings, true);
+      const taskIdentity = getTaskIdentity(uncheckedLine);
+      const previous = scopedCache[event.instanceId];
+      const previousIdentity = previous?.rendered ? getTaskIdentity(previous.rendered) : "";
+      const preservedLine = settings.preserveManualCompletion
+        ? completedLines[event.instanceId] ?? completedLines[taskIdentity] ?? completedLines[previousIdentity]
+        : undefined;
+      const completed = Boolean(preservedLine);
+      const rendered = completed ? checkedLine : uncheckedLine;
+
+      if (!previous) {
+        summary.added += 1;
+      } else if (getTaskIdentity(previous.rendered) !== taskIdentity || Boolean(previous.completed) !== completed) {
+        summary.updated += 1;
+      } else {
+        summary.unchanged += 1;
+      }
+
+      if (completed) {
+        summary.completedPreserved += 1;
+      }
+
+      nextCache[event.instanceId] = {
+        key: event.instanceId,
+        rendered,
+        completed,
+        lastSeen: seenAt,
+        notePath,
+      };
+      activeLines.push({ key: event.instanceId, line: rendered });
+    }
+
+    for (const key of Object.keys(scopedCache)) {
+      if (!currentKeys.has(key)) {
+        summary.removed += 1;
+      }
+    }
+
+    return {
+      activeBlock: buildManagedBlock(activeLines, settings),
+      completedLines: [],
+      summary,
+      nextCache,
+    };
   }
 
   private buildNotePlan(

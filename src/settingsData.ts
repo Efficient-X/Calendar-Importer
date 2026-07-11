@@ -32,6 +32,7 @@ export function normalizeSettingsData(value: unknown): CalendarTaskSyncSettings 
   normalized.multiDayAllDayEventMode = normalized.multiDayAllDayEventMode === "single" ? "single" : "daily";
   normalized.allDaySortPosition = normalized.allDaySortPosition === "last" ? "last" : "first";
   normalized.detailPlacement = normalized.detailPlacement === "after-date" ? "after-date" : "before-date";
+  normalized.taskLayout = normalized.taskLayout === "chronological" ? "chronological" : "classic";
   normalized.completedTaskMode = normalized.completedTaskMode === "preserve-in-place"
     ? "preserve-in-place"
     : "move-to-completed-section";

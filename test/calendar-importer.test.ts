@@ -898,6 +898,7 @@ describe("settings and cache recovery", () => {
       timezone: "Definitely/Not-A-Timezone",
       heading: "not a heading",
       completedHeading: "not a heading",
+      taskLayout: "sideways",
       feeds: [
         { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true },
         { id: "shared", name: "Second", url: "https://example.test/two.ics", enabled: true },
@@ -910,6 +911,7 @@ describe("settings and cache recovery", () => {
     expect(normalized.timezone).toBe("");
     expect(normalized.heading).toBe(DEFAULT_SETTINGS.heading);
     expect(normalized.completedHeading).toBe(DEFAULT_SETTINGS.completedHeading);
+    expect(normalized.taskLayout).toBe("classic");
     expect(normalized.feeds.map((item) => item.id)).toEqual(["shared", "shared-2"]);
     expect(normalized.syncCache).toEqual({});
   });

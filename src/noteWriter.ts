@@ -52,7 +52,9 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
       throw new Error("Could not locate the calendar heading after removing duplicates.");
     }
     const suffix = deduplicatedContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "");
-    const content = `${deduplicatedContent.slice(0, headingRange.bodyStart)}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
+    const prefix = deduplicatedContent.slice(0, headingRange.bodyStart);
+    const separator = normalizedBlock && !prefix.endsWith("\n") ? newline : "";
+    const content = `${prefix}${separator}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
     return { content, changed: content !== noteContent };
   }
 
@@ -132,6 +134,12 @@ export function replaceCompletedTaskSection(noteContent: string, completedLines:
   const withoutCompletedSections = removeHeadingRanges(noteContent, completedRanges);
   const trimmed = withoutCompletedSections.trimEnd();
   const content = `${trimmed}${trimmed ? `${newline}${newline}` : ""}${section}`;
+  return { content, changed: content !== noteContent };
+}
+
+export function removeCompletedTaskSection(noteContent: string, settings: CalendarTaskSyncSettings): ReplaceResult {
+  const completedRanges = findHeadingRanges(noteContent, settings.completedHeading);
+  const content = removeHeadingRanges(noteContent, completedRanges).trimEnd();
   return { content, changed: content !== noteContent };
 }
 

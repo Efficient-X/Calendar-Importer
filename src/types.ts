@@ -33,6 +33,7 @@ export interface CalendarTaskSyncSettings {
   taskTemplate: string;
   detailPlacement: "before-date" | "after-date";
   showManagedBlockMarkers: boolean;
+  taskLayout: "classic" | "chronological";
   completedTaskMode: "preserve-in-place" | "move-to-completed-section";
   completedHeading: string;
   completedRetentionDays: number;

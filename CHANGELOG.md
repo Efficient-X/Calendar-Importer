@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.8
+
+- Add a `Calendar task layout` setting with two modes: Classic and Chronological.
+- Keep Classic as the default so checked tasks still move to `## Completed Calendar Tasks`.
+- Add Chronological mode for one-heading calendars where events stay in date order and checked tasks can be unticked again later.
+- Keep Chronological mode on the existing rolling past/future sync window; enduring history is being left for a separate, more deliberate release.
+- Add regression tests for checked, unchecked, and Classic-to-Chronological migration behaviour.
+
 ## 1.1.7
 
 - Stop completed calendar events from reappearing when the Tasks plugin moves source tags before the due-date marker on checked tasks.
