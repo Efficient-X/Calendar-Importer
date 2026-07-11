@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.6
+
+- Give Obsidian and Tasks checkbox updates a short moment to settle before Calendar Importer reads and rebuilds the calendar note.
+- Save all open markdown views before syncing, so checked events updated from daily-note queries or other rendered views can reach the source note first.
+- Keep the final target-note save immediately before processing as a second guard against stale editor content.
+
 ## 1.1.5
 
 - Save the open calendar note before syncing so freshly checked tasks are moved to `## Completed Calendar Tasks` instead of being overwritten by the next feed rebuild.

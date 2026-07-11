@@ -38,6 +38,7 @@ interface BuildNotePlan {
 }
 
 const MAX_FEED_SIZE_BYTES = 25 * 1024 * 1024;
+const EDITOR_SETTLE_DELAY_MS = 300;
 
 export class CalendarTaskSyncEngine {
   private isRunning = false;
@@ -79,6 +80,8 @@ export class CalendarTaskSyncEngine {
     const enabledFeeds = settings.feeds.filter((feed) => feed.enabled && feed.url.trim());
     const events: NormalizedCalendarEvent[] = [];
     let filtered = 0;
+
+    await this.settleAndSaveOpenMarkdownViews();
 
     if (enabledFeeds.length === 0) {
       const message = "No enabled calendar feeds have a URL. Add or enable a feed before syncing. No notes were changed.";
@@ -225,7 +228,7 @@ export class CalendarTaskSyncEngine {
     filtered: number,
   ): Promise<SyncChangeSummary> {
     try {
-      await this.saveOpenMarkdownView(path);
+      await this.saveOpenMarkdownViews(path);
       const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0);
       if (!file) {
         errors.push(`${path}: note does not exist and note creation is disabled.`);
@@ -367,12 +370,17 @@ export class CalendarTaskSyncEngine {
     };
   }
 
-  private async saveOpenMarkdownView(path: string): Promise<void> {
-    const normalizedPath = normalizePath(path);
+  private async settleAndSaveOpenMarkdownViews(): Promise<void> {
+    await delay(EDITOR_SETTLE_DELAY_MS);
+    await this.saveOpenMarkdownViews();
+  }
+
+  private async saveOpenMarkdownViews(path?: string): Promise<void> {
+    const normalizedPath = path ? normalizePath(path) : undefined;
     const leaves = this.app.workspace?.getLeavesOfType?.("markdown") ?? [];
     for (const leaf of leaves) {
       const view = leaf.view as unknown;
-      if (isOpenTextFileViewForPath(view, normalizedPath)) {
+      if (isOpenTextFileView(view) && (!normalizedPath || view.file?.path === normalizedPath)) {
         await view.save();
       }
     }
@@ -488,13 +496,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function isOpenTextFileViewForPath(
+function isOpenTextFileView(
   view: unknown,
-  path: string,
 ): view is { file: TFile | null; save: () => Promise<void> } {
   if (!view || typeof view !== "object") {
     return false;
   }
   const candidate = view as { file?: TFile | null; save?: unknown };
-  return candidate.file?.path === path && typeof candidate.save === "function";
+  return typeof candidate.file?.path === "string" && typeof candidate.save === "function";
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
