@@ -1118,8 +1118,31 @@ describe("note block management", () => {
     expect(completed[getTaskIdentity(eventLine)]).toBe(completedLine);
   });
 
+  it("uses the stable inline event ID to preserve completion without a colour swatch", () => {
+    const eventId = "primary:event-123:20260716T090000Z";
+    const completedLine = `- [x] Old title <!-- calendar-importer:event ${encodeURIComponent(eventId)} -->`;
+    const completed = extractCompletedTaskLines(`## Completed Calendar Tasks\n${completedLine}\n`, settings);
+
+    expect(completed[eventId]).toBe(completedLine);
+  });
+
+  it("adds a stable event ID only when rendering a managed task", () => {
+    const event = makeEvent({ instanceId: "primary:event-123:20260716T090000Z" });
+
+    expect(renderEventTask(event, { ...settings, includeColorSwatch: false })).not.toContain("calendar-importer:event");
+    expect(renderEventTask(event, { ...settings, includeColorSwatch: false }, false, true))
+      .toContain("<!-- calendar-importer:event primary%3Aevent-123%3A20260716T090000Z -->");
+  });
+
   it("matches task identity regardless of rendered colour swatches", () => {
     const checked = "- [x] <span class=\"calendar-importer-swatch\" style=\"color:#f4511e\">x</span> Solar install - Wednesday - All day #ExampleCalendar";
+    const unchecked = "- [ ] Solar install - Wednesday - All day #ExampleCalendar";
+
+    expect(getTaskIdentity(checked)).toBe(getTaskIdentity(unchecked));
+  });
+
+  it("matches task identity regardless of legacy swatch class names", () => {
+    const checked = "- [x] <span class=\"calendar-task-sync-swatch\" style=\"color:#f4511e\">x</span> Solar install - Wednesday - All day #ExampleCalendar";
     const unchecked = "- [ ] Solar install - Wednesday - All day #ExampleCalendar";
 
     expect(getTaskIdentity(checked)).toBe(getTaskIdentity(unchecked));

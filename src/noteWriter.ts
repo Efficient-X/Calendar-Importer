@@ -14,6 +14,7 @@ export interface CompletedNormalizationResult {
   content: string;
   completedLines: string[];
   changed: boolean;
+  movedCount: number;
 }
 
 interface HeadingRange {
@@ -22,8 +23,6 @@ interface HeadingRange {
   bodyStart: number;
   sectionEnd: number;
 }
-
-const EVENT_MARKER_PREFIX = "<!-- calendar-importer:event ";
 
 export function buildManagedBlock(items: ManagedTaskLine[], settings: CalendarTaskSyncSettings): string {
   const taskLines = items.map((item) => item.line);
@@ -99,6 +98,7 @@ export function moveCompletedTasksToCompletedSection(noteContent: string, settin
   const activeLines = activeBody.split(/\r?\n/).map((line) => line.trimEnd());
   const activeIncompleteLines: ManagedTaskLine[] = [];
   const completedLines = extractCompletedSectionTaskLines(noteContent, settings);
+  let movedCount = 0;
 
   for (const line of activeLines) {
     if (!line.trim()) {
@@ -107,6 +107,7 @@ export function moveCompletedTasksToCompletedSection(noteContent: string, settin
 
     if (isCompletedTaskLine(line)) {
       completedLines.push(normalizeTaskSymbols(line));
+      movedCount += 1;
     } else {
       activeIncompleteLines.push({ key: getTaskIdentity(line), line: normalizeTaskSymbols(line) });
     }
@@ -119,6 +120,7 @@ export function moveCompletedTasksToCompletedSection(noteContent: string, settin
     content: completedReplacement.content,
     completedLines: extractCompletedSectionTaskLines(completedReplacement.content, settings),
     changed: activeReplacement.changed || completedReplacement.changed,
+    movedCount,
   };
 }
 
@@ -169,10 +171,15 @@ function extractCompletedTaskLinesFromText(block: string): Record<string, string
       result[taskIdentity] = normalizeTaskSymbols(taskLine);
     }
 
+    const stableEventId = parseStableEventId(taskLine);
+    if (stableEventId) {
+      result[stableEventId] = normalizeTaskSymbols(taskLine);
+    }
+
     const nextLine = lines[index + 1];
-    const legacyKey = nextLine ? parseEventMarker(nextLine) : null;
-    if (legacyKey) {
-      result[legacyKey] = normalizeTaskSymbols(taskLine);
+    const eventKey = parseEventMarker(taskLine) ?? (nextLine ? parseEventMarker(nextLine) : null);
+    if (eventKey) {
+      result[eventKey] = normalizeTaskSymbols(taskLine);
     }
   }
 
@@ -182,7 +189,8 @@ function extractCompletedTaskLinesFromText(block: string): Record<string, string
 export function getTaskIdentity(taskLine: string): string {
   return normalizeTaskSymbols(taskLine)
     .replace(/^\s*[-*+]\s+\[[ xX]\]\s*/, "")
-    .replace(/<span\b[^>]*calendar-importer-swatch[^>]*>.*?<\/span>\s*/gi, "")
+    .replace(/\s*<!-- calendar-importer:event\s+[^\s]+\s*-->/giu, "")
+    .replace(/<span\b[^>]*(?:calendar-importer-swatch|calendar-task-sync-swatch)[^>]*>.*?<\/span>\s*/gi, "")
     .replace(/\s+\u2705\s+\d{4}-\d{2}-\d{2}(?=\s|$)/gu, "")
     .replace(/\s+\|\s+(?:Created by|Created|Modified)\b.*$/u, "")
     .replace(/\s+/g, " ")
@@ -243,10 +251,11 @@ export function updateSyncCacheFromBlock(
 }
 
 function parseEventMarker(line: string): string | null {
-  if (!line.startsWith(EVENT_MARKER_PREFIX) || !line.endsWith(" -->")) {
+  const match = line.match(/<!-- calendar-importer:event\s+([^\s]+)\s*-->/iu);
+  if (!match?.[1]) {
     return null;
   }
-  const encoded = line.slice(EVENT_MARKER_PREFIX.length, -" -->".length);
+  const encoded = match[1];
   try {
     return decodeURIComponent(encoded);
   } catch {
@@ -262,6 +271,18 @@ function extractSectionBodies(content: string, heading: string): string[] {
   return findHeadingRanges(content, heading)
     .map((range) => content.slice(range.bodyStart, range.sectionEnd).trim())
     .filter(Boolean);
+}
+
+function parseStableEventId(line: string): string | null {
+  const match = line.match(/\bdata-calendar-importer-id=(['"])(.*?)\1/i);
+  if (!match?.[2]) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(match[2]);
+  } catch {
+    return match[2];
+  }
 }
 
 function findHeadingRange(content: string, heading: string): HeadingRange | null {

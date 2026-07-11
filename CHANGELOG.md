@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.3
+
+- fixed a bug where completed tasks were not moved to the completed task section while syncing.
+
+- Move checked tasks into `## Completed Calendar Tasks` before rebuilding the active section.
+- Cache the live calendar feed in memory, remove matching completed events, and rebuild `## My Calendar Events` from only the remaining entries.
+- Add an invisible stable event ID to every managed task, including tasks without a colour swatch, so formatting changes cannot make completed events reappear.
+- Keep compatibility with legacy task formatting while old notes transition to stable IDs.
+
 ## 1.1.1
 
 Completed section placement fix.

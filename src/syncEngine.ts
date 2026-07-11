@@ -10,7 +10,6 @@ import {
   extractCompletedTaskLines,
   getTaskIdentity,
   moveCompletedTasksToCompletedSection,
-  normalizeTaskSymbols,
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "./noteWriter";
@@ -264,10 +263,12 @@ export class CalendarTaskSyncEngine {
     existing: string,
     filtered: number,
   ): { plan: BuildNotePlan; content: string } {
-    const normalizedExisting = settings.completedTaskMode === "move-to-completed-section"
-      ? moveCompletedTasksToCompletedSection(existing, settings).content
-      : existing;
+    const completionMove = settings.completedTaskMode === "move-to-completed-section"
+      ? moveCompletedTasksToCompletedSection(existing, settings)
+      : undefined;
+    const normalizedExisting = completionMove?.content ?? existing;
     const plan = this.buildNotePlan(path, events, settings, normalizedExisting, filtered);
+    plan.summary.completedMoved += completionMove?.movedCount ?? 0;
     const activeReplacement = replaceManagedBlock(normalizedExisting, plan.activeBlock, settings);
     const completedReplacement = settings.completedTaskMode === "move-to-completed-section"
       ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
@@ -291,20 +292,29 @@ export class CalendarTaskSyncEngine {
     const scoped = prepareScopedSyncCache(settings.syncCache, notePath, currentKeys, settings.useDailyNotes);
     const scopedCache = scoped.current;
     const nextCache: Record<string, SyncCacheEntry> = scoped.next;
+    // Cache every live feed event first; completed events are filtered from this set below.
+    const downloadedCalendar = events.map((event) => ({
+      event,
+      uncheckedLine: renderEventTask(event, settings, false, true),
+    }));
     const activeLines: { key: string; line: string }[] = [];
     const completedArchiveLines = [...existingCompletedSectionLines];
     const seenAt = new Date().toISOString();
 
-    for (const event of events) {
-      const uncheckedLine = renderEventTask(event, settings, false);
+    for (const { event, uncheckedLine } of downloadedCalendar) {
       const taskIdentity = getTaskIdentity(uncheckedLine);
       const previous = scopedCache[event.instanceId];
       const previousIdentity = previous?.rendered ? getTaskIdentity(previous.rendered) : "";
-      const previousCompletedLine = previous?.completed && previous.rendered ? normalizeTaskSymbols(previous.rendered) : undefined;
       const preservedLine = settings.preserveManualCompletion
-        ? completedLines[event.instanceId] ?? completedLines[taskIdentity] ?? completedLines[previousIdentity] ?? previousCompletedLine
+        ? completedLines[event.instanceId] ?? completedLines[taskIdentity] ?? completedLines[previousIdentity]
         : undefined;
       const completed = Boolean(preservedLine);
+
+      if (preservedLine && settings.completedTaskMode === "move-to-completed-section") {
+        completedArchiveLines.push(preservedLine);
+        continue;
+      }
+
       if (!previous) {
         summary.added += 1;
       } else if (getTaskIdentity(previous.rendered) !== taskIdentity) {
@@ -320,12 +330,6 @@ export class CalendarTaskSyncEngine {
         lastSeen: seenAt,
         notePath,
       };
-
-      if (preservedLine && settings.completedTaskMode === "move-to-completed-section") {
-        completedArchiveLines.push(preservedLine);
-        summary.completedMoved += 1;
-        continue;
-      }
 
       if (completed) {
         summary.completedPreserved += 1;
