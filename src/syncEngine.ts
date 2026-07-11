@@ -225,6 +225,7 @@ export class CalendarTaskSyncEngine {
     filtered: number,
   ): Promise<SyncChangeSummary> {
     try {
+      await this.saveOpenMarkdownView(path);
       const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0);
       if (!file) {
         errors.push(`${path}: note does not exist and note creation is disabled.`);
@@ -292,11 +293,21 @@ export class CalendarTaskSyncEngine {
     const scoped = prepareScopedSyncCache(settings.syncCache, notePath, currentKeys, settings.useDailyNotes);
     const scopedCache = scoped.current;
     const nextCache: Record<string, SyncCacheEntry> = scoped.next;
-    // Cache every live feed event first; completed events are filtered from this set below.
+    // Step 2: render/cache every live feed event first; completed events are removed from this set below.
     const downloadedCalendar = events.map((event) => ({
       event,
       uncheckedLine: renderEventTask(event, settings),
     }));
+    const downloadedCache: Record<string, SyncCacheEntry> = Object.fromEntries(downloadedCalendar.map(({ event, uncheckedLine }) => [
+      event.instanceId,
+      {
+        key: event.instanceId,
+        rendered: uncheckedLine,
+        completed: false,
+        lastSeen: new Date().toISOString(),
+        notePath,
+      },
+    ]));
     const activeLines: { key: string; line: string }[] = [];
     const completedArchiveLines = [...existingCompletedSectionLines];
     const seenAt = new Date().toISOString();
@@ -311,6 +322,8 @@ export class CalendarTaskSyncEngine {
       const completed = Boolean(preservedLine);
 
       if (preservedLine && settings.completedTaskMode === "move-to-completed-section") {
+        // Step 3: remove completed events from the freshly downloaded cache before rebuilding active tasks.
+        delete downloadedCache[event.instanceId];
         completedArchiveLines.push(preservedLine);
         continue;
       }
@@ -323,7 +336,7 @@ export class CalendarTaskSyncEngine {
         summary.unchanged += 1;
       }
 
-      nextCache[event.instanceId] = {
+      downloadedCache[event.instanceId] = {
         key: event.instanceId,
         rendered: preservedLine ?? uncheckedLine,
         completed,
@@ -338,6 +351,8 @@ export class CalendarTaskSyncEngine {
       activeLines.push({ key: event.instanceId, line: preservedLine ?? uncheckedLine });
     }
 
+    Object.assign(nextCache, downloadedCache);
+
     for (const key of Object.keys(scopedCache)) {
       if (!currentKeys.has(key)) {
         summary.removed += 1;
@@ -350,6 +365,17 @@ export class CalendarTaskSyncEngine {
       summary,
       nextCache,
     };
+  }
+
+  private async saveOpenMarkdownView(path: string): Promise<void> {
+    const normalizedPath = normalizePath(path);
+    const leaves = this.app.workspace?.getLeavesOfType?.("markdown") ?? [];
+    for (const leaf of leaves) {
+      const view = leaf.view as unknown;
+      if (isOpenTextFileViewForPath(view, normalizedPath)) {
+        await view.save();
+      }
+    }
   }
 
   private async ensureNote(path: string, createIfMissing: boolean): Promise<TFile | null> {
@@ -460,4 +486,15 @@ function formatChangeSummary(summary: SyncChangeSummary | undefined): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isOpenTextFileViewForPath(
+  view: unknown,
+  path: string,
+): view is { file: TFile | null; save: () => Promise<void> } {
+  if (!view || typeof view !== "object") {
+    return false;
+  }
+  const candidate = view as { file?: TFile | null; save?: unknown };
+  return candidate.file?.path === path && typeof candidate.save === "function";
 }

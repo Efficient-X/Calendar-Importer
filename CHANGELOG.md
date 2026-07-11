@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5
+
+- Save the open calendar note before syncing so freshly checked tasks are moved to `## Completed Calendar Tasks` instead of being overwritten by the next feed rebuild.
+- Make the sync cycle follow the four-step flow explicitly: move checked tasks, cache downloaded events, remove completed matches from that cache, then rebuild the active section.
+- Add a regression test for the real Obsidian timing case where a checkbox is changed in an open note before the editor's debounced save has reached the vault file.
+
 ## 1.1.4
 
 - Stop writing hidden calendar event markers into task lines so Obsidian no longer shows green source-code comments beside imported events.

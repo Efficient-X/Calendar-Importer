@@ -163,4 +163,68 @@ describe("sync write safety", () => {
     expect(Object.values(settings.syncCache)[0].rendered).toContain("Still active");
     expect(Object.values(settings.syncCache)[0].rendered).not.toContain("calendar-importer:event");
   });
+
+  it("saves an open calendar note before moving checked tasks", async () => {
+    let content = [
+      "## My Calendar Events",
+      "- [ ] Safe update - Thursday - 09:00-10:00 ðŸ“… 2026-07-16",
+      "",
+      "## Completed Calendar Tasks",
+      "",
+    ].join("\n");
+    const editorContent = content.replace("- [ ] Safe update", "- [x] Safe update");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const save = vi.fn(async () => {
+      content = editorContent;
+    });
+    const process = vi.fn(async (_file: TFile, update: (value: string) => string) => {
+      content = update(content);
+      return content;
+    });
+    const app = {
+      workspace: {
+        getLeavesOfType: vi.fn(() => [{
+          view: {
+            file,
+            save,
+          },
+        }]),
+      },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process,
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(save.mock.invocationCallOrder[0]).toBeLessThan(process.mock.invocationCallOrder[0]);
+    expect(result.changeSummary?.completedMoved).toBe(1);
+    expect(content).toContain("## My Calendar Events\n\n## Completed Calendar Tasks");
+    expect(content).toContain("## Completed Calendar Tasks\n- [x] Safe update - Thursday - 09:00-10:00 📅 2026-07-16");
+    expect(content).not.toContain("- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16");
+    expect(Object.values(settings.syncCache)).toHaveLength(0);
+  });
 });
