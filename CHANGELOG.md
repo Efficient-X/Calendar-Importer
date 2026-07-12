@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.13
+
+- Skip sync immediately when Obsidian reports the device is offline.
+- Show a clear "No internet connection detected" sync result instead of trying each feed while offline.
+- Leave calendar notes, caches, and linked-note folders untouched during offline skips.
+- Add a regression test for airplane-mode/offline sync behaviour.
+- Refresh the README wikilink example wording.
+
 ## 1.1.12
 
 - Add linked-note folder modes: let Obsidian decide, all events in one folder, separate folder for this calendar, or custom folder.

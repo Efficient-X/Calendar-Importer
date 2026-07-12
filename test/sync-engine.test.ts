@@ -18,6 +18,7 @@ vi.mock("obsidian", () => ({
 describe("sync write safety", () => {
   beforeEach(() => {
     vi.stubGlobal("window", { setTimeout });
+    vi.stubGlobal("navigator", { onLine: true });
     mocks.requestUrl.mockReset();
   });
 
@@ -56,6 +57,34 @@ describe("sync write safety", () => {
 
     expect(result.success).toBe(false);
     expect(result.errors[0]).toContain("No enabled calendar feeds");
+    expect(process).not.toHaveBeenCalled();
+  });
+
+  it("skips sync before fetching or writing when the device is offline", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    const process = vi.fn();
+    const getLeavesOfType = vi.fn(() => []);
+    const app = {
+      workspace: { getLeavesOfType },
+      vault: { process },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      feeds: [{
+        id: "work",
+        name: "Work",
+        url: "https://calendar.example/work.ics",
+        enabled: true,
+      }],
+    };
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(false);
+    expect(result.skipped).toBe(true);
+    expect(result.errors[0]).toContain("No internet connection detected");
+    expect(mocks.requestUrl).not.toHaveBeenCalled();
+    expect(getLeavesOfType).not.toHaveBeenCalled();
     expect(process).not.toHaveBeenCalled();
   });
 

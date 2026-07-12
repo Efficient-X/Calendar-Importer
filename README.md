@@ -24,7 +24,7 @@ Using a shared calendar with someone who has not yet found the warm glow of Obsi
 
 Less double entry, and more Obsidian time for you. How good!
 
-Your calendar events can be turned into basic text tasks or wikilinked notes. Your call. Tiny switch, big "oh that's handy" energy.
+Your calendar events can be turned into basic text tasks or wikilinked notes if that's your style. Niccccee!
 
 ```markdown
 - [ ] Weekly review - Friday - 16:00-16:30 📅 2026-08-07 #calendar

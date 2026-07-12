@@ -82,8 +82,6 @@ export class CalendarTaskSyncEngine {
     const events: NormalizedCalendarEvent[] = [];
     let filtered = 0;
 
-    await this.settleAndSaveOpenMarkdownViews();
-
     if (enabledFeeds.length === 0) {
       const message = "No enabled calendar feeds have a URL. Add or enable a feed before syncing. No notes were changed.";
       return {
@@ -94,6 +92,19 @@ export class CalendarTaskSyncEngine {
         errors: [message],
       };
     }
+
+    if (isBrowserOffline()) {
+      const message = "No internet connection detected. Sync skipped and no notes were changed.";
+      return {
+        success: false,
+        skipped: true,
+        eventCount: 0,
+        message,
+        errors: [message],
+      };
+    }
+
+    await this.settleAndSaveOpenMarkdownViews();
 
     for (const feed of enabledFeeds) {
       const feedResult = await this.fetchAndParseFeed(feed.id, errors, window);
@@ -631,6 +642,10 @@ function formatChangeSummary(summary: SyncChangeSummary | undefined): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isBrowserOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
 }
 
 function isOpenTextFileView(
