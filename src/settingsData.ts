@@ -77,6 +77,9 @@ export function normalizeFeedSettings(value: unknown): CalendarFeedSetting[] {
       tags: stringField(feed.tags),
       includeKeywords: stringField(feed.includeKeywords),
       excludeKeywords: stringField(feed.excludeKeywords),
+      wikilinksEnabled: typeof feed.wikilinksEnabled === "boolean" ? feed.wikilinksEnabled : false,
+      wikilinkDisplayMode: feed.wikilinkDisplayMode === "direct" ? "direct" : "alias",
+      wikilinkPrefixFormat: stringField(feed.wikilinkPrefixFormat) || "yyMMdd - ",
       enabled: typeof feed.enabled === "boolean" ? feed.enabled : true,
     };
   });

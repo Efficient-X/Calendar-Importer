@@ -194,6 +194,47 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
             });
         });
 
+      new Setting(details)
+        .setName("Event title links")
+        .setDesc("Wrap event titles in Obsidian wikilinks, so calendar items can become notes when you click them.")
+        .addToggle((toggle) => toggle
+          .setValue(feed.wikilinksEnabled ?? false)
+          .onChange(async (value) => {
+            feed.wikilinksEnabled = value;
+            feed.wikilinkDisplayMode ??= "alias";
+            feed.wikilinkPrefixFormat ||= "yyMMdd - ";
+            await this.plugin.saveSettings();
+            this.render();
+          }));
+
+      if (feed.wikilinksEnabled) {
+        new Setting(details)
+          .setName("Wikilink display")
+          .setDesc("Alias keeps the task line pretty while linking to the dated note title.")
+          .addDropdown((dropdown) => dropdown
+            .addOption("alias", "Show event title")
+            .addOption("direct", "Show note title")
+            .setValue(feed.wikilinkDisplayMode ?? "alias")
+            .onChange(async (value) => {
+              feed.wikilinkDisplayMode = value === "direct" ? "direct" : "alias";
+              await this.plugin.saveSettings();
+            }));
+
+        new Setting(details)
+          .setName("Wikilink date prefix")
+          .setDesc("Luxon format added before the note title. Use an empty value for no prefix.")
+          .addText((text) => {
+            protectTextInput(text.inputEl);
+            text
+              .setPlaceholder("yyMMdd - ")
+              .setValue(feed.wikilinkPrefixFormat ?? "yyMMdd - ")
+              .onChange(async (value) => {
+                feed.wikilinkPrefixFormat = value;
+                await this.plugin.saveSettings();
+              });
+          });
+      }
+
       this.addColourSetting(details, feed);
 
       new Setting(details)
@@ -798,6 +839,9 @@ function createFeed(): CalendarFeedSetting {
     enabled: true,
     color: "",
     sourceLabel: "",
+    wikilinksEnabled: false,
+    wikilinkDisplayMode: "alias",
+    wikilinkPrefixFormat: "yyMMdd - ",
   };
 }
 

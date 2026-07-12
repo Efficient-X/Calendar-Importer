@@ -64,10 +64,12 @@ export function buildTokens(event: NormalizedCalendarEvent, settings: CalendarTa
   const creator = settings.includeEventCreator ? cleanInline(event.createdBy ?? "", settings) : "";
   const created = settings.includeEventCreated && event.created ? formatMetadataDate(event.created, settings) : "";
   const lastModified = settings.includeEventLastModified && event.lastModified ? formatMetadataDate(event.lastModified, settings) : "";
+  const title = cleanInline(event.title, settings);
+  const noteTitleBase = cleanWikilinkTitleText(event.title, settings);
 
   return {
     colorSwatch: settings.includeColorSwatch ? buildColorSwatch(event.color) : "",
-    title: cleanInline(event.title, settings),
+    title: renderTitleToken(title, noteTitleBase, event, settings, start),
     details,
     detailsSeparator: details ? " - " : "",
     preDateDetails: settings.detailPlacement === "before-date" ? detailSuffix : "",
@@ -88,6 +90,31 @@ export function buildTokens(event: NormalizedCalendarEvent, settings: CalendarTa
     lastModified,
     metadataSuffix: buildMetadataSuffix(event, settings),
   };
+}
+
+function renderTitleToken(
+  title: string,
+  noteTitleBase: string,
+  event: NormalizedCalendarEvent,
+  settings: CalendarTaskSyncSettings,
+  start: DateTime,
+): string {
+  const feed = settings.feeds.find((candidate) => candidate.id === event.sourceId);
+  if (!feed?.wikilinksEnabled || !title) {
+    return title;
+  }
+
+  const prefix = feed.wikilinkPrefixFormat === undefined ? "yyMMdd - " : feed.wikilinkPrefixFormat;
+  const noteTitle = sanitizeWikilinkTarget(`${prefix ? start.toFormat(prefix) : ""}${noteTitleBase}`);
+  if (!noteTitle) {
+    return title;
+  }
+
+  if (feed.wikilinkDisplayMode === "direct") {
+    return `[[${noteTitle}]]`;
+  }
+
+  return `[[${noteTitle}|${sanitizeWikilinkAlias(title)}]]`;
 }
 
 export function buildTaskPreview(settings: CalendarTaskSyncSettings): string {
@@ -154,6 +181,11 @@ export function cleanInline(value: string, settings: Pick<CalendarTaskSyncSettin
   return settings.collapseWhitespace ? cleaned.replace(/\s+/g, " ").trim() : cleaned.trim();
 }
 
+function cleanWikilinkTitleText(value: string, settings: Pick<CalendarTaskSyncSettings, "collapseWhitespace">): string {
+  const cleaned = decodeEntities(value).replace(/\r?\n/g, " ");
+  return settings.collapseWhitespace ? cleaned.replace(/\s+/g, " ").trim() : cleaned.trim();
+}
+
 function formatMetadataDate(date: Date, settings: CalendarTaskSyncSettings): string {
   const value = toDateTime(date, settings.timezone);
   return value.toFormat(`${settings.dateFormat || "yyyy-MM-dd"} ${settings.timeFormat || "HH:mm"}`);
@@ -204,6 +236,24 @@ function escapeMarkdownHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function sanitizeWikilinkTarget(value: string): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[\\/:*?"<>|#[\]^]+/g, " - ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+-\s+(?=-\s+)/g, " ")
+    .trim()
+    .replace(/^[.\s-]+|[.\s-]+$/g, "");
+}
+
+function sanitizeWikilinkAlias(value: string): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[[\]|]+/g, " - ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function decodeNumericEntity(fallback: string, codePoint: number): string {

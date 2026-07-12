@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.9
+
+- Add per-calendar event title wikilinks, off by default.
+- Support dated note titles with a configurable Luxon prefix, defaulting to `yyMMdd - `.
+- Support direct links like `[[260717 - Code Camp]]` and prettier alias links like `[[260717 - Code Camp|Code Camp]]`.
+- Sanitize generated note titles so calendar punctuation does not create awkward or invalid note links.
+- Keep completed-task matching stable when wikilinks are enabled, so checked calendar events do not reappear just because the title rendering changed.
+
 ## 1.1.8
 
 - Add a `Calendar task layout` setting with two modes: Classic and Chronological.

@@ -8,6 +8,9 @@ export interface CalendarFeedSetting {
   tags?: string;
   includeKeywords?: string;
   excludeKeywords?: string;
+  wikilinksEnabled?: boolean;
+  wikilinkDisplayMode?: "direct" | "alias";
+  wikilinkPrefixFormat?: string;
 }
 
 export interface CalendarTaskSyncSettings {

@@ -809,6 +809,36 @@ describe("rendering and sorting", () => {
     expect(renderEventTask(event, custom)).toBe("- [ ] Thu 09:00 Dentist @ Clinic 📅 2026-07-16 #calendar #gcal");
   });
 
+  it("can render event titles as dated wikilinks with a tidy alias", () => {
+    const event = makeEvent({ title: "J,S,L - Code Camp", start: "2026-07-17T08:30:00Z", end: "2026-07-17T15:45:00Z" });
+    const linkedSettings: CalendarTaskSyncSettings = {
+      ...settings,
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - " }],
+    };
+
+    expect(renderEventTask(event, linkedSettings)).toContain("[[260717 - J,S,L - Code Camp|J,S,L - Code Camp]]");
+  });
+
+  it("can render event titles as direct wikilinks", () => {
+    const event = makeEvent({ title: "Eamon for dinner" });
+    const linkedSettings: CalendarTaskSyncSettings = {
+      ...settings,
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "direct", wikilinkPrefixFormat: "yyyy_MM_dd_" }],
+    };
+
+    expect(renderEventTask(event, linkedSettings)).toContain("[[2026_07_16_Eamon for dinner]]");
+  });
+
+  it("sanitizes wikilink note titles without changing the visible alias", () => {
+    const event = makeEvent({ title: "Dinner: Eamon/Steph | bring <notes>" });
+    const linkedSettings: CalendarTaskSyncSettings = {
+      ...settings,
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - " }],
+    };
+
+    expect(renderEventTask(event, linkedSettings)).toContain("[[260716 - Dinner - Eamon - Steph - bring - notes|Dinner: Eamon/Steph - bring &lt;notes&gt;]]");
+  });
+
   it("renders a compact colour swatch when event colour is available", () => {
     const event = makeEvent({ title: "Coloured", color: "#f4511e" });
 
@@ -900,8 +930,8 @@ describe("settings and cache recovery", () => {
       completedHeading: "not a heading",
       taskLayout: "sideways",
       feeds: [
-        { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true },
-        { id: "shared", name: "Second", url: "https://example.test/two.ics", enabled: true },
+        { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true, wikilinksEnabled: true, wikilinkDisplayMode: "sideways" },
+        { id: "shared", name: "Second", url: "https://example.test/two.ics", enabled: true, wikilinkDisplayMode: "direct", wikilinkPrefixFormat: "yyyy-MM-dd - " },
       ],
       syncCache: { broken: null },
     });
@@ -913,6 +943,11 @@ describe("settings and cache recovery", () => {
     expect(normalized.completedHeading).toBe(DEFAULT_SETTINGS.completedHeading);
     expect(normalized.taskLayout).toBe("classic");
     expect(normalized.feeds.map((item) => item.id)).toEqual(["shared", "shared-2"]);
+    expect(normalized.feeds[0]?.wikilinksEnabled).toBe(true);
+    expect(normalized.feeds[0]?.wikilinkDisplayMode).toBe("alias");
+    expect(normalized.feeds[0]?.wikilinkPrefixFormat).toBe("yyMMdd - ");
+    expect(normalized.feeds[1]?.wikilinkDisplayMode).toBe("direct");
+    expect(normalized.feeds[1]?.wikilinkPrefixFormat).toBe("yyyy-MM-dd - ");
     expect(normalized.syncCache).toEqual({});
   });
 
@@ -1020,6 +1055,13 @@ describe("note block management", () => {
     const fixed = "- [ ] Done task 📅 2026-07-16 #ExampleCalendar";
 
     expect(getTaskIdentity(broken)).toBe(getTaskIdentity(fixed));
+  });
+
+  it("compares aliased wikilink event titles by their visible title", () => {
+    const linked = "- [x] [[260717 - J,S,L - Code Camp|J,S,L - Code Camp]] - Friday - 08:30-15:45 📅 2026-07-17 ✅ 2026-07-18 #TBCarGmail";
+    const plain = "- [ ] J,S,L - Code Camp - Friday - 08:30-15:45 📅 2026-07-17 #TBCarGmail";
+
+    expect(getTaskIdentity(linked)).toBe(getTaskIdentity(plain));
   });
 
   it("can still read legacy hidden marker completion states", () => {

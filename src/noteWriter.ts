@@ -200,6 +200,8 @@ export function getTaskIdentity(taskLine: string): string {
     .replace(/^\s*[-*+]\s+\[[ xX]\]\s*/, "")
     .replace(calendarImporterEventMarkerPattern(), "")
     .replace(/<span\b[^>]*(?:calendar-importer-swatch|calendar-task-sync-swatch)[^>]*>.*?<\/span>\s*/gi, "")
+    .replace(/\[\[[^\]|]*\|([^\]]+)\]\]/gu, "$1")
+    .replace(/\[\[([^\]]+)\]\]/gu, "$1")
     .replace(/\s+\u2705\s+\d{4}-\d{2}-\d{2}(?=\s|$)/gu, "")
     .replace(/\s+\|\s+(?:Created by|Created|Modified)\b.*$/u, "")
     .replace(/(^|\s)#[^\s#]+/gu, " ")
