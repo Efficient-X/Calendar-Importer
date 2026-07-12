@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1
+
+- Add hotkeyable actions to clear completed calendar tasks, reopen recently completed tasks, and reopen all completed tasks.
+- Add matching settings buttons so accidental completions can be fixed without editing plugin data by hand.
+- Reopened tasks are moved back into the live calendar task list as unchecked tasks.
+- Add sync cache retention so old cache entries self-clean by default after 365 days, with `0` available for a full historical cache.
+- Add regression tests for reopen, clear, and cache-pruning behaviour.
+
 ## 1.2.0
 
 - Stable checkpoint release for the current known-good sync behaviour before adding the next completion-management controls.

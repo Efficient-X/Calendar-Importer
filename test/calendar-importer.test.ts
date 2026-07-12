@@ -8,12 +8,14 @@ import { normalizeSettingsData } from "../src/settingsData";
 import { prepareScopedSyncCache } from "../src/syncCache";
 import {
   buildManagedBlock,
+  clearCompletedTasksFromNote,
   extractCompletedSectionTaskLines,
   extractCompletedTaskLines,
   extractCompletionStates,
   getTaskIdentity,
   moveCompletedTasksToCompletedSection,
   prepareCompletedTaskLines,
+  reopenCompletedTasksInNote,
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "../src/noteWriter";
@@ -1168,6 +1170,69 @@ describe("note block management", () => {
     expect(completed[getTaskIdentity("- [ ] Active done 📅 2026-07-16")]).toBe(activeCompleted);
     expect(completed[getTaskIdentity("- [ ] Archived done 📅 2026-07-17")]).toBe(archivedCompleted);
   });
+  it("reopens recently completed tasks and leaves older completed tasks alone", () => {
+    const calendarMarker = String.fromCodePoint(0x1f4c5);
+    const doneMarker = String.fromCodePoint(0x2705);
+    const note = [
+      "## My Calendar Events",
+      "- [ ] Active task",
+      "",
+      "## Completed Calendar Tasks",
+      `- [x] Accidental tick - Thursday - 09:00-10:00 ${calendarMarker} 2026-07-16 ${doneMarker} 2026-07-12`,
+      `- [x] Properly done - Friday - 09:00-10:00 ${calendarMarker} 2026-07-17 ${doneMarker} 2026-07-01`,
+      "",
+    ].join("\n");
+
+    const result = reopenCompletedTasksInNote(note, settings, "recent", new Date("2026-07-12T12:00:00"));
+
+    expect(result.affectedCount).toBe(1);
+    expect(result.content).toContain(`## My Calendar Events\n- [ ] Active task\n- [ ] Accidental tick - Thursday - 09:00-10:00 ${calendarMarker} 2026-07-16`);
+    expect(result.content).toContain(`## Completed Calendar Tasks\n- [x] Properly done - Friday - 09:00-10:00 ${calendarMarker} 2026-07-17 ${doneMarker} 2026-07-01`);
+    expect(result.content).not.toContain("[x] Accidental tick");
+  });
+
+  it("reopens all completed tasks from classic and chronological layouts", () => {
+    const calendarMarker = String.fromCodePoint(0x1f4c5);
+    const doneMarker = String.fromCodePoint(0x2705);
+    const note = [
+      "## My Calendar Events",
+      `- [x] Checked in place ${calendarMarker} 2026-07-16 ${doneMarker} 2026-07-12`,
+      "",
+      "## Completed Calendar Tasks",
+      `- [x] Archived done ${calendarMarker} 2026-07-17 ${doneMarker} 2026-07-12`,
+      "",
+    ].join("\n");
+
+    const result = reopenCompletedTasksInNote(note, settings, "all");
+
+    expect(result.affectedCount).toBe(2);
+    expect(result.content).toContain(`- [ ] Checked in place ${calendarMarker} 2026-07-16`);
+    expect(result.content).toContain(`- [ ] Archived done ${calendarMarker} 2026-07-17`);
+    expect(result.content).toContain("## Completed Calendar Tasks\n");
+    expect(result.content).not.toContain("[x]");
+    expect(result.content).not.toContain(doneMarker);
+  });
+
+  it("clears completed tasks from active and completed sections", () => {
+    const note = [
+      "## My Calendar Events",
+      "- [x] Checked in place",
+      "- [ ] Still live",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Archived done",
+      "",
+    ].join("\n");
+
+    const result = clearCompletedTasksFromNote(note, settings);
+
+    expect(result.affectedCount).toBe(2);
+    expect(result.content).toContain("## My Calendar Events\n- [ ] Still live");
+    expect(result.content).toContain("## Completed Calendar Tasks\n");
+    expect(result.content).not.toContain("Checked in place");
+    expect(result.content).not.toContain("Archived done");
+  });
+
   it("moves checked active tasks into the completed section before rebuilding active tasks", () => {
     const note = [
       "# Calendar Tasks",

@@ -43,6 +43,7 @@ export interface CalendarTaskSyncSettings {
   completedTaskMode: "preserve-in-place" | "move-to-completed-section";
   completedHeading: string;
   completedRetentionDays: number;
+  syncCacheRetentionDays: number;
   includeColorSwatch: boolean;
   dateFormat: string;
   timeFormat: string;
@@ -75,6 +76,8 @@ export interface SyncCacheEntry {
   lastSeen: string;
   notePath?: string;
 }
+
+export type CompletedTaskActionScope = "recent" | "all";
 
 export interface NormalizedCalendarEvent {
   sourceId: string;

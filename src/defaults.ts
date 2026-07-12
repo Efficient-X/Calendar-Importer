@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
   completedTaskMode: "move-to-completed-section",
   completedHeading: "## Completed Calendar Tasks",
   completedRetentionDays: 0,
+  syncCacheRetentionDays: 365,
   includeColorSwatch: true,
   dateFormat: "yyyy-MM-dd",
   timeFormat: "HH:mm",

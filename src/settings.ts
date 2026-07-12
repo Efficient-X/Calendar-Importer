@@ -131,6 +131,27 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         .setButtonText("Open note")
         .onClick(() => this.runSafely(() => this.plugin.openCalendarNote())));
 
+    new Setting(containerEl)
+      .setName("Reopen completed from last 24 hours")
+      .setDesc("Unticks recently completed calendar tasks and moves them back into the live list. Handy for the classic accidental click.")
+      .addButton((button) => button
+        .setButtonText("Reopen recent")
+        .onClick(() => this.runSafely(() => this.plugin.reopenRecentCompletedCalendarTasks())));
+
+    new Setting(containerEl)
+      .setName("Reopen all completed")
+      .setDesc("Unticks every completed calendar task Calendar Importer can see in the current sync range. Big button, big feelings.")
+      .addButton((button) => button
+        .setButtonText("Reopen all")
+        .onClick(() => this.runSafely(() => this.plugin.reopenAllCompletedCalendarTasks())));
+
+    new Setting(containerEl)
+      .setName("Clear completed")
+      .setDesc("Deletes completed calendar tasks from the managed note and clears their completion memory.")
+      .addButton((button) => styleDestructiveButton(button)
+        .setButtonText("Clear completed")
+        .onClick(() => this.runSafely(() => this.plugin.clearCompletedCalendarTasks())));
+
   }
 
   private renderFeeds(containerEl: HTMLElement): void {
@@ -790,6 +811,20 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
           .setValue(String(this.plugin.settings.completedRetentionDays))
           .onChange(async (value) => {
             this.plugin.settings.completedRetentionDays = clampInteger(value, 0, 0, 3650);
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Sync cache retention")
+      .setDesc("Days to keep old sync cache entries. Use 0 if you want the whole historical record, because some people enjoy archaeology.")
+      .addText((text) => {
+        protectTextInput(text.inputEl);
+        text
+          .setPlaceholder("365")
+          .setValue(String(this.plugin.settings.syncCacheRetentionDays))
+          .onChange(async (value) => {
+            this.plugin.settings.syncCacheRetentionDays = clampInteger(value, 365, 0, 3650);
             await this.plugin.saveSettings();
           });
       });

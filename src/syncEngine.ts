@@ -6,10 +6,12 @@ import { sortEvents } from "./eventSorter";
 import { eventMatchesFeedFilters, parseIcsFeed } from "./icsParser";
 import {
   buildManagedBlock,
+  clearCompletedTasksFromNote,
   extractCompletedSectionTaskLines,
   extractCompletedTaskLines,
   getTaskIdentity,
   moveCompletedTasksToCompletedSection,
+  reopenCompletedTasksInNote,
   removeCompletedTaskSection,
   replaceCompletedTaskSection,
   replaceManagedBlock,
@@ -18,6 +20,7 @@ import { isLikelyIcs, maskUrl, normalizeFeedUrl, redactSensitiveUrls } from "./s
 import { prepareScopedSyncCache } from "./syncCache";
 import type {
   CalendarTaskSyncSettings,
+  CompletedTaskActionScope,
   NormalizedCalendarEvent,
   SyncCacheEntry,
   SyncChangeSummary,
@@ -36,6 +39,11 @@ interface BuildNotePlan {
   completedLines: string[];
   summary: SyncChangeSummary;
   nextCache: Record<string, SyncCacheEntry>;
+}
+
+export interface CompletedTaskActionSummary {
+  affectedCount: number;
+  noteCount: number;
 }
 
 const MAX_FEED_SIZE_BYTES = 25 * 1024 * 1024;
@@ -72,6 +80,14 @@ export class CalendarTaskSyncEngine {
     const settings = this.getSettings();
     const path = this.resolveNotePath(new Date(), settings);
     return this.ensureNote(path, settings.createNoteIfMissing);
+  }
+
+  async clearCompletedCalendarTasks(): Promise<CompletedTaskActionSummary> {
+    return this.processCompletedCalendarTasks((content, settings) => clearCompletedTasksFromNote(content, settings));
+  }
+
+  async reopenCompletedCalendarTasks(scope: CompletedTaskActionScope): Promise<CompletedTaskActionSummary> {
+    return this.processCompletedCalendarTasks((content, settings) => reopenCompletedTasksInNote(content, settings, scope));
   }
 
   private async runSync(): Promise<SyncResult> {
@@ -319,7 +335,7 @@ export class CalendarTaskSyncEngine {
       if (!outcome.plan) {
         throw new Error("Could not prepare the note update.");
       }
-      settings.syncCache = outcome.plan.nextCache;
+      settings.syncCache = pruneSyncCache(outcome.plan.nextCache, settings);
       return outcome.plan.summary;
     } catch (error) {
       errors.push(`${path}: could not update note: ${errorMessage(error)}`);
@@ -590,6 +606,65 @@ export class CalendarTaskSyncEngine {
       : settings.calendarNotePath;
     return normalizePath(path);
   }
+
+  private async processCompletedCalendarTasks(
+    update: (content: string, settings: CalendarTaskSyncSettings) => {
+      content: string;
+      changed: boolean;
+      affectedCount: number;
+      affectedIdentities: string[];
+    },
+  ): Promise<CompletedTaskActionSummary> {
+    const settings = this.getSettings();
+    const paths = this.getManagedNotePaths(settings);
+    const affectedIdentities = new Set<string>();
+    let affectedCount = 0;
+    let noteCount = 0;
+
+    await this.settleAndSaveOpenMarkdownViews();
+
+    for (const path of paths) {
+      await this.saveOpenMarkdownViews(path);
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) {
+        continue;
+      }
+
+      let changed = false;
+      await this.app.vault.process(file, (existing) => {
+        const result = update(existing, settings);
+        changed = result.changed;
+        affectedCount += result.affectedCount;
+        for (const identity of result.affectedIdentities) {
+          affectedIdentities.add(identity);
+        }
+        return result.content;
+      });
+
+      if (changed) {
+        noteCount += 1;
+      }
+    }
+
+    settings.syncCache = pruneSyncCache(removeCompletedEntriesFromCache(settings.syncCache, affectedIdentities), settings);
+    return { affectedCount, noteCount };
+  }
+
+  private getManagedNotePaths(settings: CalendarTaskSyncSettings): string[] {
+    if (!settings.useDailyNotes) {
+      return [this.resolveNotePath(new Date(), settings)];
+    }
+
+    const window = getSyncWindow(settings.pastDays, settings.futureDays, settings.timezone);
+    const paths = new Set<string>();
+    let cursor = DateTime.fromJSDate(window.start).setZone(settings.timezone || "local").startOf("day");
+    const end = DateTime.fromJSDate(window.end).setZone(settings.timezone || "local").startOf("day");
+    while (cursor < end) {
+      paths.add(this.resolveNotePath(cursor.toJSDate(), settings));
+      cursor = cursor.plus({ days: 1 });
+    }
+    return [...paths];
+  }
 }
 
 function groupEventsByPath(events: NormalizedCalendarEvent[], settings: CalendarTaskSyncSettings): Map<string, NormalizedCalendarEvent[]> {
@@ -642,6 +717,43 @@ function formatChangeSummary(summary: SyncChangeSummary | undefined): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function removeCompletedEntriesFromCache(
+  cache: Record<string, SyncCacheEntry>,
+  affectedIdentities: ReadonlySet<string>,
+): Record<string, SyncCacheEntry> {
+  if (affectedIdentities.size === 0) {
+    return cache;
+  }
+
+  return Object.fromEntries(Object.entries(cache).filter(([key, entry]) => {
+    if (affectedIdentities.has(key)) {
+      return false;
+    }
+    const identity = entry.rendered ? getTaskIdentity(entry.rendered) : "";
+    if (identity && affectedIdentities.has(identity)) {
+      return false;
+    }
+    return true;
+  }));
+}
+
+export function pruneSyncCache(
+  cache: Record<string, SyncCacheEntry>,
+  settings: CalendarTaskSyncSettings,
+  now = new Date(),
+): Record<string, SyncCacheEntry> {
+  const retentionDays = Math.max(0, settings.syncCacheRetentionDays ?? 0);
+  if (retentionDays === 0) {
+    return cache;
+  }
+
+  const cutoff = now.getTime() - retentionDays * 24 * 60 * 60 * 1000;
+  return Object.fromEntries(Object.entries(cache).filter(([, entry]) => {
+    const lastSeen = Date.parse(entry.lastSeen);
+    return Number.isNaN(lastSeen) || lastSeen >= cutoff;
+  }));
 }
 
 function isBrowserOffline(): boolean {

@@ -26,6 +26,7 @@ export function normalizeSettingsData(value: unknown): CalendarTaskSyncSettings 
   normalized.pastDays = clampNumber(normalized.pastDays, 0, 3650, 0);
   normalized.futureDays = clampNumber(normalized.futureDays, 0, 3650, 30);
   normalized.completedRetentionDays = clampNumber(normalized.completedRetentionDays, 0, 3650, 0);
+  normalized.syncCacheRetentionDays = clampNumber(normalized.syncCacheRetentionDays, 0, 3650, 365);
   normalized.descriptionLengthLimit = clampNumber(normalized.descriptionLengthLimit, 0, 2000, 120);
   normalized.minimumReminderLeadDays = clampNumber(normalized.minimumReminderLeadDays, 1, 3650, 1);
 

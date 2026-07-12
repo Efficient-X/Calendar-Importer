@@ -141,6 +141,24 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     new Notice(`${PLUGIN_NAME}: sync cache cleared.`);
   }
 
+  async clearCompletedCalendarTasks(): Promise<void> {
+    const result = await this.engine.clearCompletedCalendarTasks();
+    await this.saveSettings();
+    new Notice(`${PLUGIN_NAME}: cleared ${result.affectedCount} completed task${result.affectedCount === 1 ? "" : "s"}.`);
+  }
+
+  async reopenRecentCompletedCalendarTasks(): Promise<void> {
+    const result = await this.engine.reopenCompletedCalendarTasks("recent");
+    await this.saveSettings();
+    new Notice(`${PLUGIN_NAME}: reopened ${result.affectedCount} recently completed task${result.affectedCount === 1 ? "" : "s"}.`);
+  }
+
+  async reopenAllCompletedCalendarTasks(): Promise<void> {
+    const result = await this.engine.reopenCompletedCalendarTasks("all");
+    await this.saveSettings();
+    new Notice(`${PLUGIN_NAME}: reopened ${result.affectedCount} completed task${result.affectedCount === 1 ? "" : "s"}.`);
+  }
+
   private registerCommands(): void {
     this.addCommand({
       id: "sync-now",
@@ -152,6 +170,24 @@ export default class CalendarTaskSyncPlugin extends Plugin {
       id: "clear-sync-cache",
       name: "Clear sync cache",
       callback: () => this.runSafely(() => this.clearSyncCache()),
+    });
+
+    this.addCommand({
+      id: "clear-completed-calendar-tasks",
+      name: "Clear completed calendar tasks",
+      callback: () => this.runSafely(() => this.clearCompletedCalendarTasks()),
+    });
+
+    this.addCommand({
+      id: "reopen-recent-completed-calendar-tasks",
+      name: "Reopen completed calendar tasks from the last 24 hours",
+      callback: () => this.runSafely(() => this.reopenRecentCompletedCalendarTasks()),
+    });
+
+    this.addCommand({
+      id: "reopen-all-completed-calendar-tasks",
+      name: "Reopen all completed calendar tasks",
+      callback: () => this.runSafely(() => this.reopenAllCompletedCalendarTasks()),
     });
 
     this.addCommand({

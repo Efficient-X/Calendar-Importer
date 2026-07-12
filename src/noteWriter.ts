@@ -1,4 +1,4 @@
-import type { CalendarTaskSyncSettings, SyncCacheEntry } from "./types";
+import type { CalendarTaskSyncSettings, CompletedTaskActionScope, SyncCacheEntry } from "./types";
 
 export interface ManagedTaskLine {
   key: string;
@@ -15,6 +15,13 @@ export interface CompletedNormalizationResult {
   completedLines: string[];
   changed: boolean;
   movedCount: number;
+}
+
+export interface CompletedTaskActionResult {
+  content: string;
+  changed: boolean;
+  affectedCount: number;
+  affectedIdentities: string[];
 }
 
 interface HeadingRange {
@@ -143,6 +150,76 @@ export function removeCompletedTaskSection(noteContent: string, settings: Calend
   return { content, changed: content !== noteContent };
 }
 
+export function clearCompletedTasksFromNote(noteContent: string, settings: CalendarTaskSyncSettings): CompletedTaskActionResult {
+  const activeLines = extractManagedBlock(noteContent, settings)
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim());
+  const activeCompletedLines = activeLines.filter(isCompletedTaskLine);
+  const activeRemainingLines = activeLines
+    .filter((line) => !isCompletedTaskLine(line))
+    .map((line) => ({ key: getTaskIdentity(line), line: normalizeTaskSymbols(line) }));
+  const completedLines = [...activeCompletedLines, ...extractCompletedSectionTaskLines(noteContent, settings)];
+  const activeReplacement = replaceManagedBlock(noteContent, buildManagedBlock(activeRemainingLines, settings), settings);
+  const content = replaceCompletedTaskSection(activeReplacement.content, [], settings).content;
+  return {
+    content,
+    changed: content !== noteContent,
+    affectedCount: completedLines.length,
+    affectedIdentities: getTaskIdentities(completedLines),
+  };
+}
+
+export function reopenCompletedTasksInNote(
+  noteContent: string,
+  settings: CalendarTaskSyncSettings,
+  scope: CompletedTaskActionScope,
+  now = new Date(),
+): CompletedTaskActionResult {
+  const activeRawLines = extractManagedBlock(noteContent, settings)
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim());
+  const activeCompletedLines = activeRawLines.filter(isCompletedTaskLine);
+  const sectionCompletedLines = extractCompletedSectionTaskLines(noteContent, settings);
+  const completedLines = [...activeCompletedLines, ...sectionCompletedLines];
+  const selectedLines = completedLines.filter((line) => scope === "all" || wasCompletedRecently(line, now));
+  if (selectedLines.length === 0) {
+    return {
+      content: noteContent,
+      changed: false,
+      affectedCount: 0,
+      affectedIdentities: [],
+    };
+  }
+
+  const selectedIdentities = new Set(getTaskIdentities(selectedLines));
+  const remainingCompletedLines = sectionCompletedLines.filter((line) => !selectedIdentities.has(getTaskIdentity(line)));
+  const activeLines = activeRawLines
+    .filter((line) => !isCompletedTaskLine(line) || !selectedIdentities.has(getTaskIdentity(line)))
+    .map((line) => ({ key: getTaskIdentity(line), line: normalizeTaskSymbols(line) }));
+  const existingActiveIdentities = new Set(activeLines.map((entry) => entry.key));
+
+  for (const line of selectedLines) {
+    const reopenedLine = reopenTaskLine(line);
+    const identity = getTaskIdentity(reopenedLine);
+    if (identity && !existingActiveIdentities.has(identity)) {
+      activeLines.push({ key: identity, line: reopenedLine });
+      existingActiveIdentities.add(identity);
+    }
+  }
+
+  const activeReplacement = replaceManagedBlock(noteContent, buildManagedBlock(activeLines, settings), settings);
+  const completedReplacement = replaceCompletedTaskSection(activeReplacement.content, remainingCompletedLines, settings);
+
+  return {
+    content: completedReplacement.content,
+    changed: completedReplacement.content !== noteContent,
+    affectedCount: selectedLines.length,
+    affectedIdentities: [...selectedIdentities],
+  };
+}
+
 export function prepareCompletedTaskLines(
   completedLines: string[],
   settings: CalendarTaskSyncSettings,
@@ -207,6 +284,26 @@ export function getTaskIdentity(taskLine: string): string {
     .replace(/(^|\s)#[^\s#]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function getTaskIdentities(lines: string[]): string[] {
+  return [...new Set(lines.map(getTaskIdentity).filter(Boolean))];
+}
+
+function reopenTaskLine(line: string): string {
+  return normalizeTaskSymbols(line)
+    .replace(/^(\s*[-*+]\s+\[)[xX](\]\s*)/u, "$1 $2")
+    .replace(/\s+\u2705\s+\d{4}-\d{2}-\d{2}(?=\s|$)/gu, "")
+    .trimEnd();
+}
+
+function wasCompletedRecently(line: string, now: Date): boolean {
+  const match = normalizeTaskSymbols(line).match(/\u2705\s+(\d{4})-(\d{2})-(\d{2})(?=\s|$)/u);
+  if (!match?.[1] || !match[2] || !match[3]) {
+    return false;
+  }
+  const endOfCompletionDate = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 23, 59, 59, 999);
+  return endOfCompletionDate.getTime() >= now.getTime() - 24 * 60 * 60 * 1000;
 }
 
 export function normalizeTaskSymbols(value: string): string {

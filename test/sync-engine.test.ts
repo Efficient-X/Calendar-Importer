@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TFile, type App } from "obsidian";
 import { DEFAULT_SETTINGS } from "../src/defaults";
-import { CalendarTaskSyncEngine } from "../src/syncEngine";
+import { CalendarTaskSyncEngine, pruneSyncCache } from "../src/syncEngine";
 import type { CalendarTaskSyncSettings } from "../src/types";
 
 const mocks = vi.hoisted(() => ({
@@ -539,6 +539,84 @@ describe("sync write safety", () => {
     expect(content).not.toContain("## Completed Calendar Tasks");
     expect(Object.values(settings.syncCache)).toHaveLength(1);
     expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(true);
+  });
+
+  it("reopens recently completed tasks through the engine action", async () => {
+    const calendarMarker = String.fromCodePoint(0x1f4c5);
+    const doneMarker = String.fromCodePoint(0x2705);
+    let content = [
+      "## My Calendar Events",
+      "",
+      "## Completed Calendar Tasks",
+      `- [x] Accidental tick - Sunday - 09:00-10:00 ${calendarMarker} 2026-07-12 ${doneMarker} 2026-07-12`,
+      `- [x] Properly done - Monday - 09:00-10:00 ${calendarMarker} 2026-07-13 ${doneMarker} 2026-07-01`,
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+      syncCache: {
+        accidental: {
+          key: "accidental",
+          rendered: `- [x] Accidental tick - Sunday - 09:00-10:00 ${calendarMarker} 2026-07-12 ${doneMarker} 2026-07-12`,
+          completed: true,
+          lastSeen: "2026-07-12T00:00:00.000Z",
+          notePath: "Calendar/My Calendar Events.md",
+        },
+        done: {
+          key: "done",
+          rendered: `- [x] Properly done - Monday - 09:00-10:00 ${calendarMarker} 2026-07-13 ${doneMarker} 2026-07-01`,
+          completed: true,
+          lastSeen: "2026-07-12T00:00:00.000Z",
+          notePath: "Calendar/My Calendar Events.md",
+        },
+      },
+    };
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).reopenCompletedCalendarTasks("recent");
+
+    expect(result.affectedCount).toBe(1);
+    expect(content).toContain(`## My Calendar Events\n- [ ] Accidental tick - Sunday - 09:00-10:00 ${calendarMarker} 2026-07-12`);
+    expect(content).toContain(`## Completed Calendar Tasks\n- [x] Properly done - Monday - 09:00-10:00 ${calendarMarker} 2026-07-13 ${doneMarker} 2026-07-01`);
+    expect(settings.syncCache.accidental).toBeUndefined();
+    expect(settings.syncCache.done).toBeDefined();
+  });
+
+  it("prunes old sync cache entries unless retention is set to keep history", () => {
+    const cache = {
+      old: {
+        key: "old",
+        rendered: "- [ ] Old",
+        lastSeen: "2020-01-01T00:00:00.000Z",
+      },
+      fresh: {
+        key: "fresh",
+        rendered: "- [ ] Fresh",
+        lastSeen: "2026-07-12T00:00:00.000Z",
+      },
+    };
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      syncCacheRetentionDays: 365,
+    };
+
+    expect(pruneSyncCache(cache, settings, new Date("2026-07-12T12:00:00.000Z"))).toEqual({
+      fresh: cache.fresh,
+    });
+    expect(pruneSyncCache(cache, { ...settings, syncCacheRetentionDays: 0 }, new Date("2026-07-12T12:00:00.000Z"))).toEqual(cache);
   });
 
   it("creates configured wikilink folders before writing linked event tasks", async () => {

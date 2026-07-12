@@ -129,6 +129,12 @@ Calendar Importer can preserve completed imported tasks and move them into:
 
 You can keep completed tasks forever or trim them after a set number of days.
 
+If you tick the wrong thing, use `Reopen completed from last 24 hours` to put recent completed tasks back in the live list. `Reopen all completed` does the same for everything Calendar Importer can see in the current sync range.
+
+`Clear completed` removes completed calendar tasks from the managed note and clears their completion memory. Use it when you want to tidy the done pile, not when you want to undo a single accidental tick.
+
+Sync cache retention keeps old cache entries from building up forever. The default is 365 days. Set it to `0` if you want Calendar Importer to keep the full historical cache.
+
 ### Debug
 
 Debug is for troubleshooting. Most people can leave it closed and enjoy a peaceful life.
