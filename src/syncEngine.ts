@@ -1,7 +1,7 @@
 import { App, normalizePath, requestUrl, TFile, TFolder } from "obsidian";
 import { DateTime } from "luxon";
 import { formatTemplatePath, getSyncWindow } from "./dateUtils";
-import { normalizeWikilinkFolderPath, renderEventTask } from "./eventRenderer";
+import { renderEventTask, resolveWikilinkFolderPath } from "./eventRenderer";
 import { sortEvents } from "./eventSorter";
 import { eventMatchesFeedFilters, parseIcsFeed } from "./icsParser";
 import {
@@ -206,7 +206,7 @@ export class CalendarTaskSyncEngine {
   private async ensureLinkedNoteFolders(settings: CalendarTaskSyncSettings, errors: string[]): Promise<void> {
     const folders = new Set(settings.feeds
       .filter((feed) => feed.enabled && feed.wikilinksEnabled)
-      .map((feed) => normalizeWikilinkFolderPath(feed.wikilinkFolder ?? ""))
+      .map((feed) => resolveWikilinkFolderPath(feed))
       .filter(Boolean));
 
     for (const folder of folders) {

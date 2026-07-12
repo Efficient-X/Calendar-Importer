@@ -11,6 +11,8 @@ export interface CalendarFeedSetting {
   wikilinksEnabled?: boolean;
   wikilinkDisplayMode?: "direct" | "alias";
   wikilinkPrefixFormat?: string;
+  wikilinkFolderMode?: "obsidian-default" | "all-events" | "by-calendar" | "custom";
+  wikilinkBaseFolder?: string;
   wikilinkFolder?: string;
 }
 

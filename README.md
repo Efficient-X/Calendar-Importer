@@ -30,8 +30,8 @@ Your calendar events can be turned into basic text tasks or wikilinked notes. Yo
 - [ ] Weekly review - Friday - 16:00-16:30 📅 2026-08-07 #calendar
 - [ ] Reminder: Dentist - Tuesday - 09:00 📅 2026-08-11 #health
 - [ ] [[Project planning]] - Wednesday - 10:00-11:00 📅 2026-08-12 #work
-- [ ] [[260814 - Book club]] - Friday - 18:30-20:00 📅 2026-08-14 #personal
-- [ ] [[260817 - Weekly review|Weekly review]] - Monday - 09:00-09:30 📅 2026-08-17 #calendar
+- [ ] [[Calendar/Calendar Events/Personal/260814 - Book club]] - Friday - 18:30-20:00 📅 2026-08-14 #personal
+- [ ] [[Calendar/Calendar Events/Work/260817 - Weekly review|Weekly review]] - Monday - 09:00-09:30 📅 2026-08-17 #calendar
 ```
 
 ## Installation

@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { toDateTime } from "./dateUtils";
-import type { CalendarTaskSyncSettings, NormalizedCalendarEvent } from "./types";
+import { DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
+import type { CalendarFeedSetting, CalendarTaskSyncSettings, NormalizedCalendarEvent } from "./types";
 
 interface RenderTokens {
   colorSwatch: string;
@@ -104,12 +105,12 @@ function renderTitleToken(
     return title;
   }
 
-  const prefix = feed.wikilinkPrefixFormat === undefined ? "yyMMdd - " : feed.wikilinkPrefixFormat;
+  const prefix = feed.wikilinkPrefixFormat === undefined ? DEFAULT_WIKILINK_PREFIX_FORMAT : feed.wikilinkPrefixFormat;
   const noteTitle = sanitizeWikilinkTarget(`${prefix ? start.toFormat(prefix) : ""}${noteTitleBase}`);
   if (!noteTitle) {
     return title;
   }
-  const target = buildWikilinkTarget(noteTitle, feed.wikilinkFolder);
+  const target = buildWikilinkTarget(noteTitle, feed);
 
   if (feed.wikilinkDisplayMode === "direct") {
     return `[[${target}]]`;
@@ -249,9 +250,27 @@ function sanitizeWikilinkTarget(value: string): string {
     .replace(/^[.\s-]+|[.\s-]+$/g, "");
 }
 
-function buildWikilinkTarget(noteTitle: string, folder: string | undefined): string {
-  const folderPath = normalizeWikilinkFolderPath(folder ?? "");
+function buildWikilinkTarget(noteTitle: string, feed: CalendarFeedSetting): string {
+  const folderPath = resolveWikilinkFolderPath(feed);
   return folderPath ? `${folderPath}/${noteTitle}` : noteTitle;
+}
+
+export function resolveWikilinkFolderPath(feed: CalendarFeedSetting): string {
+  const mode = feed.wikilinkFolderMode ?? (feed.wikilinkFolder ? "custom" : "by-calendar");
+  if (mode === "obsidian-default") {
+    return "";
+  }
+  if (mode === "custom") {
+    return normalizeWikilinkFolderPath(feed.wikilinkFolder ?? "");
+  }
+
+  const baseFolder = normalizeWikilinkFolderPath(feed.wikilinkBaseFolder || DEFAULT_WIKILINK_BASE_FOLDER);
+  if (mode === "all-events") {
+    return baseFolder;
+  }
+
+  const calendarFolder = sanitizeWikilinkTarget(feed.name || feed.sourceLabel || "Calendar");
+  return [baseFolder, calendarFolder].filter(Boolean).join("/");
 }
 
 export function normalizeWikilinkFolderPath(value: string): string {

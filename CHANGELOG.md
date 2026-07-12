@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.12
+
+- Add linked-note folder modes: let Obsidian decide, all events in one folder, separate folder for this calendar, or custom folder.
+- Default new event-title wikilinks to `Calendar/Calendar Events/<calendar name>` so linked notes organise themselves without extra setup.
+- Keep existing custom folder settings from `1.1.11` as custom folders during settings recovery.
+- Add a shared base folder setting for the organised folder modes.
+- Update README and settings docs to explain the new folder behaviour.
+
 ## 1.1.11
 
 - Add a per-calendar `Linked note folder` setting for event title wikilinks.

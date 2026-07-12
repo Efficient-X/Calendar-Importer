@@ -1,6 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting, type ButtonComponent } from "obsidian";
 import type CalendarTaskSyncPlugin from "../main";
-import { DEFAULT_TASK_TEMPLATE } from "./defaults";
+import { DEFAULT_TASK_TEMPLATE, DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
 import { buildTaskPreview } from "./eventRenderer";
 import type { CalendarFeedSetting } from "./types";
 import { maskUrl } from "./security";
@@ -202,7 +202,9 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             feed.wikilinksEnabled = value;
             feed.wikilinkDisplayMode ??= "alias";
-            feed.wikilinkPrefixFormat ||= "yyMMdd - ";
+            feed.wikilinkPrefixFormat ||= DEFAULT_WIKILINK_PREFIX_FORMAT;
+            feed.wikilinkFolderMode ??= "by-calendar";
+            feed.wikilinkBaseFolder ||= DEFAULT_WIKILINK_BASE_FOLDER;
             await this.plugin.saveSettings();
             this.render();
           }));
@@ -227,7 +229,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
             protectTextInput(text.inputEl);
             text
               .setPlaceholder("yyMMdd - ")
-              .setValue(feed.wikilinkPrefixFormat ?? "yyMMdd - ")
+              .setValue(feed.wikilinkPrefixFormat ?? DEFAULT_WIKILINK_PREFIX_FORMAT)
               .onChange(async (value) => {
                 feed.wikilinkPrefixFormat = value;
                 await this.plugin.saveSettings();
@@ -236,17 +238,51 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
         new Setting(details)
           .setName("Linked note folder")
+          .setDesc("Adds a folder path to event wikilinks and creates the folder during sync. Turn it off to let Obsidian decide where new notes go.")
+          .addDropdown((dropdown) => dropdown
+            .addOption("by-calendar", "Separate folder for this calendar")
+            .addOption("all-events", "All events in one folder")
+            .addOption("custom", "Custom folder")
+            .addOption("obsidian-default", "Let Obsidian decide")
+            .setValue(feed.wikilinkFolderMode ?? "by-calendar")
+            .onChange(async (value) => {
+              feed.wikilinkFolderMode = isWikilinkFolderMode(value) ? value : "by-calendar";
+              feed.wikilinkBaseFolder ||= DEFAULT_WIKILINK_BASE_FOLDER;
+              await this.plugin.saveSettings();
+              this.render();
+            }));
+
+        if ((feed.wikilinkFolderMode ?? "by-calendar") === "all-events" || (feed.wikilinkFolderMode ?? "by-calendar") === "by-calendar") {
+          new Setting(details)
+            .setName("Base folder")
+            .setDesc("Default home for linked event notes. Separate calendar folders are created inside this folder.")
+            .addText((text) => {
+              protectTextInput(text.inputEl);
+              text
+                .setPlaceholder(DEFAULT_WIKILINK_BASE_FOLDER)
+                .setValue(feed.wikilinkBaseFolder ?? DEFAULT_WIKILINK_BASE_FOLDER)
+                .onChange(async (value) => {
+                  feed.wikilinkBaseFolder = value;
+                  await this.plugin.saveSettings();
+                });
+            });
+        }
+
+        if ((feed.wikilinkFolderMode ?? "by-calendar") === "custom") {
+          new Setting(details)
+          .setName("Custom folder")
           .setDesc("Home for notes created from these calendar links. Set your own folder to match your folder structure. Leave blank if you like a little chaos in your vault root.")
           .addText((text) => {
             protectTextInput(text.inputEl);
             text
-              .setPlaceholder("Calendar Events")
+              .setPlaceholder(DEFAULT_WIKILINK_BASE_FOLDER)
               .setValue(feed.wikilinkFolder ?? "")
               .onChange(async (value) => {
                 feed.wikilinkFolder = value;
                 await this.plugin.saveSettings();
               });
           });
+        }
       }
 
       this.addColourSetting(details, feed);
@@ -855,9 +891,15 @@ function createFeed(): CalendarFeedSetting {
     sourceLabel: "",
     wikilinksEnabled: false,
     wikilinkDisplayMode: "alias",
-    wikilinkPrefixFormat: "yyMMdd - ",
+    wikilinkPrefixFormat: DEFAULT_WIKILINK_PREFIX_FORMAT,
+    wikilinkFolderMode: "by-calendar",
+    wikilinkBaseFolder: DEFAULT_WIKILINK_BASE_FOLDER,
     wikilinkFolder: "",
   };
+}
+
+function isWikilinkFolderMode(value: string): value is NonNullable<CalendarFeedSetting["wikilinkFolderMode"]> {
+  return value === "obsidian-default" || value === "all-events" || value === "by-calendar" || value === "custom";
 }
 
 function clampInteger(value: string, fallback: number, min: number, max: number): number {

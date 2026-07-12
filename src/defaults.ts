@@ -1,6 +1,8 @@
 import type { CalendarTaskSyncSettings } from "./types";
 
 export const DEFAULT_TASK_TEMPLATE = "{{title}} - {{weekday}} - {{time}}{{preDateDetails}} {{dateMarker}} {{date}}{{postDateDetails}}";
+export const DEFAULT_WIKILINK_PREFIX_FORMAT = "yyMMdd - ";
+export const DEFAULT_WIKILINK_BASE_FOLDER = "Calendar/Calendar Events";
 
 const LEGACY_CALENDAR_MARKER_MOJIBAKE = String.fromCodePoint(
   0x00c3, 0x0192, 0x00c2, 0x00b0, 0x00c3, 0x2026, 0x00c2, 0x00b8,

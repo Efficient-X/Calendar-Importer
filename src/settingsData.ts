@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { DEFAULT_SETTINGS } from "./defaults";
+import { DEFAULT_SETTINGS, DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
 import type { CalendarFeedSetting, CalendarTaskSyncSettings, SyncCacheEntry } from "./types";
 
 type SettingsKey = keyof CalendarTaskSyncSettings;
@@ -68,6 +68,8 @@ export function normalizeFeedSettings(value: unknown): CalendarFeedSetting[] {
   return value.filter(isRecord).map((feed, index) => {
     const baseId = requiredString(stringField(feed.id), `feed-${index + 1}`);
     const id = makeUniqueId(baseId, usedIds);
+    const customFolder = normalizeFolderPath(stringField(feed.wikilinkFolder));
+    const folderMode = normalizeWikilinkFolderMode(feed.wikilinkFolderMode, customFolder);
     return {
       id,
       name: requiredString(stringField(feed.name), "New calendar"),
@@ -79,11 +81,20 @@ export function normalizeFeedSettings(value: unknown): CalendarFeedSetting[] {
       excludeKeywords: stringField(feed.excludeKeywords),
       wikilinksEnabled: typeof feed.wikilinksEnabled === "boolean" ? feed.wikilinksEnabled : false,
       wikilinkDisplayMode: feed.wikilinkDisplayMode === "direct" ? "direct" : "alias",
-      wikilinkPrefixFormat: stringField(feed.wikilinkPrefixFormat) || "yyMMdd - ",
-      wikilinkFolder: normalizeFolderPath(stringField(feed.wikilinkFolder)),
+      wikilinkPrefixFormat: stringField(feed.wikilinkPrefixFormat) || DEFAULT_WIKILINK_PREFIX_FORMAT,
+      wikilinkFolderMode: folderMode,
+      wikilinkBaseFolder: normalizeFolderPath(stringField(feed.wikilinkBaseFolder)) || DEFAULT_WIKILINK_BASE_FOLDER,
+      wikilinkFolder: customFolder,
       enabled: typeof feed.enabled === "boolean" ? feed.enabled : true,
     };
   });
+}
+
+function normalizeWikilinkFolderMode(value: unknown, customFolder: string): CalendarFeedSetting["wikilinkFolderMode"] {
+  if (value === "obsidian-default" || value === "all-events" || value === "by-calendar" || value === "custom") {
+    return value;
+  }
+  return customFolder ? "custom" : "by-calendar";
 }
 
 function normalizeSyncCache(value: unknown): Record<string, SyncCacheEntry> {

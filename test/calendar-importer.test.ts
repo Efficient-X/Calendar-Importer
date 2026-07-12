@@ -813,7 +813,7 @@ describe("rendering and sorting", () => {
     const event = makeEvent({ title: "J,S,L - Code Camp", start: "2026-07-17T08:30:00Z", end: "2026-07-17T15:45:00Z" });
     const linkedSettings: CalendarTaskSyncSettings = {
       ...settings,
-      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - " }],
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - ", wikilinkFolderMode: "obsidian-default" }],
     };
 
     expect(renderEventTask(event, linkedSettings)).toContain("[[260717 - J,S,L - Code Camp|J,S,L - Code Camp]]");
@@ -823,7 +823,7 @@ describe("rendering and sorting", () => {
     const event = makeEvent({ title: "Eamon for dinner" });
     const linkedSettings: CalendarTaskSyncSettings = {
       ...settings,
-      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "direct", wikilinkPrefixFormat: "yyyy_MM_dd_" }],
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "direct", wikilinkPrefixFormat: "yyyy_MM_dd_", wikilinkFolderMode: "obsidian-default" }],
     };
 
     expect(renderEventTask(event, linkedSettings)).toContain("[[2026_07_16_Eamon for dinner]]");
@@ -833,17 +833,27 @@ describe("rendering and sorting", () => {
     const event = makeEvent({ title: "Weekly review" });
     const linkedSettings: CalendarTaskSyncSettings = {
       ...settings,
-      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - ", wikilinkFolder: "Calendar Events/Work" }],
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - ", wikilinkFolderMode: "custom", wikilinkFolder: "Calendar Events/Work" }],
     };
 
     expect(renderEventTask(event, linkedSettings)).toContain("[[Calendar Events/Work/260716 - Weekly review|Weekly review]]");
+  });
+
+  it("defaults event wikilinks into a calendar-specific folder", () => {
+    const event = makeEvent({ title: "Weekly review" });
+    const linkedSettings: CalendarTaskSyncSettings = {
+      ...settings,
+      feeds: [{ ...feed, name: "Work", wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - " }],
+    };
+
+    expect(renderEventTask(event, linkedSettings)).toContain("[[Calendar/Calendar Events/Work/260716 - Weekly review|Weekly review]]");
   });
 
   it("sanitizes wikilink note titles without changing the visible alias", () => {
     const event = makeEvent({ title: "Dinner: Eamon/Steph | bring <notes>" });
     const linkedSettings: CalendarTaskSyncSettings = {
       ...settings,
-      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - " }],
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - ", wikilinkFolderMode: "obsidian-default" }],
     };
 
     expect(renderEventTask(event, linkedSettings)).toContain("[[260716 - Dinner - Eamon - Steph - bring - notes|Dinner: Eamon/Steph - bring &lt;notes&gt;]]");
@@ -956,9 +966,12 @@ describe("settings and cache recovery", () => {
     expect(normalized.feeds[0]?.wikilinksEnabled).toBe(true);
     expect(normalized.feeds[0]?.wikilinkDisplayMode).toBe("alias");
     expect(normalized.feeds[0]?.wikilinkPrefixFormat).toBe("yyMMdd - ");
+    expect(normalized.feeds[0]?.wikilinkFolderMode).toBe("custom");
+    expect(normalized.feeds[0]?.wikilinkBaseFolder).toBe("Calendar/Calendar Events");
     expect(normalized.feeds[0]?.wikilinkFolder).toBe("Calendar Events/Work");
     expect(normalized.feeds[1]?.wikilinkDisplayMode).toBe("direct");
     expect(normalized.feeds[1]?.wikilinkPrefixFormat).toBe("yyyy-MM-dd - ");
+    expect(normalized.feeds[1]?.wikilinkFolderMode).toBe("by-calendar");
     expect(normalized.syncCache).toEqual({});
   });
 
