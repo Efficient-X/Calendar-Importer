@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.10
+
+- Improve the in-app wikilink display description with direct and alias examples.
+- Expand the README examples to show plain tasks, reminder tasks, direct wikilinks, dated wikilinks, and dated alias wikilinks.
+- Add a clearer settings documentation section for event title links.
+
 ## 1.1.9
 
 - Add per-calendar event title wikilinks, off by default.

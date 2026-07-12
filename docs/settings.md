@@ -36,8 +36,39 @@ Each calendar feed can have:
 - A source label
 - Optional tags
 - Optional include or exclude keywords
+- Optional wikilinks for event titles
 
 You can have one calendar or several. Work, family, bills, school, travel, the lot.
+
+### Event Title Links
+
+Turn this on for a feed when you want calendar events to become clickable Obsidian links.
+
+Calendar Importer can keep things plain:
+
+```markdown
+- [ ] Weekly review - Friday - 16:00-16:30 📅 2026-08-07 #calendar
+```
+
+Or it can turn the event title into a note link:
+
+```markdown
+- [ ] [[Project planning]] - Wednesday - 10:00-11:00 📅 2026-08-12 #work
+```
+
+With the default date prefix, repeated event names get their own note targets:
+
+```markdown
+- [ ] [[260814 - Book club]] - Friday - 18:30-20:00 📅 2026-08-14 #personal
+```
+
+The prettiest option is the alias style:
+
+```markdown
+- [ ] [[260817 - Weekly review|Weekly review]] - Monday - 09:00-09:30 📅 2026-08-17 #calendar
+```
+
+That displays as `Weekly review`, but links to the dated note title `260817 - Weekly review`. Neat little Obsidian trick.
 
 ## Destination Note
 

@@ -210,7 +210,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       if (feed.wikilinksEnabled) {
         new Setting(details)
           .setName("Wikilink display")
-          .setDesc("Alias keeps the task line pretty while linking to the dated note title.")
+          .setDesc("Choose what the task shows. Show note title: [[260817 - Weekly review]]. Show event title: [[260817 - Weekly review|Weekly review]], which displays as Weekly review but opens the dated note.")
           .addDropdown((dropdown) => dropdown
             .addOption("alias", "Show event title")
             .addOption("direct", "Show note title")

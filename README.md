@@ -24,10 +24,14 @@ Using a shared calendar with someone who has not yet found the warm glow of Obsi
 
 Less double entry, and more Obsidian time for you. How good!
 
+Your calendar events can be turned into basic text tasks or wikilinked notes. Your call. Tiny switch, big "oh that's handy" energy.
+
 ```markdown
-- [ ] Haircut - Friday - 16:00-16:30 2026-08-07 #calendar
-- [ ] Rent due - Monday - All day 2026-08-10 #home
-- [ ] Reminder: Dentist - Tuesday - 09:00 2026-08-11 #health
+- [ ] Weekly review - Friday - 16:00-16:30 📅 2026-08-07 #calendar
+- [ ] Reminder: Dentist - Tuesday - 09:00 📅 2026-08-11 #health
+- [ ] [[Project planning]] - Wednesday - 10:00-11:00 📅 2026-08-12 #work
+- [ ] [[260814 - Book club]] - Friday - 18:30-20:00 📅 2026-08-14 #personal
+- [ ] [[260817 - Weekly review|Weekly review]] - Monday - 09:00-09:30 📅 2026-08-17 #calendar
 ```
 
 ## Installation
