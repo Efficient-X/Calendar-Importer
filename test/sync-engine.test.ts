@@ -511,4 +511,58 @@ describe("sync write safety", () => {
     expect(Object.values(settings.syncCache)).toHaveLength(1);
     expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(true);
   });
+
+  it("creates configured wikilink folders before writing linked event tasks", async () => {
+    let content = "## My Calendar Events\n";
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const createFolder = vi.fn(async () => undefined);
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn((path: string) => path === "Calendar/My Calendar Events.md" ? file : null),
+        createFolder,
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{
+        id: "work",
+        name: "Work",
+        url: "https://calendar.example/work.ics",
+        enabled: true,
+        wikilinksEnabled: true,
+        wikilinkDisplayMode: "alias",
+        wikilinkPrefixFormat: "yyMMdd - ",
+        wikilinkFolder: "Calendar Events/Work",
+      }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:sync-test",
+        "SUMMARY:Safe update",
+        "DTSTART:20260716T090000Z",
+        "DTEND:20260716T100000Z",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(createFolder).toHaveBeenCalledWith("Calendar Events");
+    expect(createFolder).toHaveBeenCalledWith("Calendar Events/Work");
+    expect(content).toContain("[[Calendar Events/Work/260716 - Safe update|Safe update]]");
+  });
 });

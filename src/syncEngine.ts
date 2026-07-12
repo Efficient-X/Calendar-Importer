@@ -1,7 +1,7 @@
 import { App, normalizePath, requestUrl, TFile, TFolder } from "obsidian";
 import { DateTime } from "luxon";
 import { formatTemplatePath, getSyncWindow } from "./dateUtils";
-import { renderEventTask } from "./eventRenderer";
+import { normalizeWikilinkFolderPath, renderEventTask } from "./eventRenderer";
 import { sortEvents } from "./eventSorter";
 import { eventMatchesFeedFilters, parseIcsFeed } from "./icsParser";
 import {
@@ -111,6 +111,17 @@ export class CalendarTaskSyncEngine {
       };
     }
 
+    await this.ensureLinkedNoteFolders(settings, errors);
+    if (errors.length > 0) {
+      return {
+        success: false,
+        skipped: false,
+        eventCount: events.length,
+        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. No notes were changed.`,
+        errors,
+      };
+    }
+
     const sortedEvents = sortEvents(events, settings);
     const writeResult = await this.writeEvents(sortedEvents, settings, window, errors, filtered);
 
@@ -190,6 +201,50 @@ export class CalendarTaskSyncEngine {
     const path = this.resolveNotePath(new Date(), settings);
     const summary = await this.writeOneNote(path, events, settings, errors, filtered);
     return { notePath: path, changeSummary: summary };
+  }
+
+  private async ensureLinkedNoteFolders(settings: CalendarTaskSyncSettings, errors: string[]): Promise<void> {
+    const folders = new Set(settings.feeds
+      .filter((feed) => feed.enabled && feed.wikilinksEnabled)
+      .map((feed) => normalizeWikilinkFolderPath(feed.wikilinkFolder ?? ""))
+      .filter(Boolean));
+
+    for (const folder of folders) {
+      try {
+        await this.ensureExactFolder(folder);
+      } catch (error) {
+        errors.push(`${folder}: could not create linked note folder: ${errorMessage(error)}`);
+      }
+    }
+  }
+
+  private async ensureExactFolder(path: string): Promise<void> {
+    const normalized = normalizePath(path);
+    if (!normalized) {
+      return;
+    }
+
+    const existing = this.app.vault.getAbstractFileByPath(normalized);
+    if (existing instanceof TFolder) {
+      return;
+    }
+    if (existing) {
+      throw new Error("a file already exists at that path");
+    }
+
+    const parts = normalized.split("/").filter(Boolean);
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      const currentExisting = this.app.vault.getAbstractFileByPath(current);
+      if (currentExisting instanceof TFolder) {
+        continue;
+      }
+      if (currentExisting) {
+        throw new Error(`a file already exists at ${current}`);
+      }
+      await this.app.vault.createFolder(current);
+    }
   }
 
   private async writeDailyNotes(

@@ -80,6 +80,7 @@ export function normalizeFeedSettings(value: unknown): CalendarFeedSetting[] {
       wikilinksEnabled: typeof feed.wikilinksEnabled === "boolean" ? feed.wikilinksEnabled : false,
       wikilinkDisplayMode: feed.wikilinkDisplayMode === "direct" ? "direct" : "alias",
       wikilinkPrefixFormat: stringField(feed.wikilinkPrefixFormat) || "yyMMdd - ",
+      wikilinkFolder: normalizeFolderPath(stringField(feed.wikilinkFolder)),
       enabled: typeof feed.enabled === "boolean" ? feed.enabled : true,
     };
   });
@@ -141,6 +142,15 @@ function requiredString(value: string, fallback: string): string {
 
 function stringField(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function normalizeFolderPath(value: string): string {
+  return value
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("/");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

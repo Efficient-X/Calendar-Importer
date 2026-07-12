@@ -11,6 +11,7 @@ export interface CalendarFeedSetting {
   wikilinksEnabled?: boolean;
   wikilinkDisplayMode?: "direct" | "alias";
   wikilinkPrefixFormat?: string;
+  wikilinkFolder?: string;
 }
 
 export interface CalendarTaskSyncSettings {

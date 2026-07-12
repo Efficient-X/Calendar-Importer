@@ -829,6 +829,16 @@ describe("rendering and sorting", () => {
     expect(renderEventTask(event, linkedSettings)).toContain("[[2026_07_16_Eamon for dinner]]");
   });
 
+  it("can render event wikilinks into a configured folder", () => {
+    const event = makeEvent({ title: "Weekly review" });
+    const linkedSettings: CalendarTaskSyncSettings = {
+      ...settings,
+      feeds: [{ ...feed, wikilinksEnabled: true, wikilinkDisplayMode: "alias", wikilinkPrefixFormat: "yyMMdd - ", wikilinkFolder: "Calendar Events/Work" }],
+    };
+
+    expect(renderEventTask(event, linkedSettings)).toContain("[[Calendar Events/Work/260716 - Weekly review|Weekly review]]");
+  });
+
   it("sanitizes wikilink note titles without changing the visible alias", () => {
     const event = makeEvent({ title: "Dinner: Eamon/Steph | bring <notes>" });
     const linkedSettings: CalendarTaskSyncSettings = {
@@ -930,7 +940,7 @@ describe("settings and cache recovery", () => {
       completedHeading: "not a heading",
       taskLayout: "sideways",
       feeds: [
-        { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true, wikilinksEnabled: true, wikilinkDisplayMode: "sideways" },
+        { id: "shared", name: "First", url: "https://example.test/one.ics", enabled: true, wikilinksEnabled: true, wikilinkDisplayMode: "sideways", wikilinkFolder: " Calendar Events\\Work / " },
         { id: "shared", name: "Second", url: "https://example.test/two.ics", enabled: true, wikilinkDisplayMode: "direct", wikilinkPrefixFormat: "yyyy-MM-dd - " },
       ],
       syncCache: { broken: null },
@@ -946,6 +956,7 @@ describe("settings and cache recovery", () => {
     expect(normalized.feeds[0]?.wikilinksEnabled).toBe(true);
     expect(normalized.feeds[0]?.wikilinkDisplayMode).toBe("alias");
     expect(normalized.feeds[0]?.wikilinkPrefixFormat).toBe("yyMMdd - ");
+    expect(normalized.feeds[0]?.wikilinkFolder).toBe("Calendar Events/Work");
     expect(normalized.feeds[1]?.wikilinkDisplayMode).toBe("direct");
     expect(normalized.feeds[1]?.wikilinkPrefixFormat).toBe("yyyy-MM-dd - ");
     expect(normalized.syncCache).toEqual({});

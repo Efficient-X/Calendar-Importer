@@ -109,12 +109,13 @@ function renderTitleToken(
   if (!noteTitle) {
     return title;
   }
+  const target = buildWikilinkTarget(noteTitle, feed.wikilinkFolder);
 
   if (feed.wikilinkDisplayMode === "direct") {
-    return `[[${noteTitle}]]`;
+    return `[[${target}]]`;
   }
 
-  return `[[${noteTitle}|${sanitizeWikilinkAlias(title)}]]`;
+  return `[[${target}|${sanitizeWikilinkAlias(title)}]]`;
 }
 
 export function buildTaskPreview(settings: CalendarTaskSyncSettings): string {
@@ -246,6 +247,20 @@ function sanitizeWikilinkTarget(value: string): string {
     .replace(/\s+-\s+(?=-\s+)/g, " ")
     .trim()
     .replace(/^[.\s-]+|[.\s-]+$/g, "");
+}
+
+function buildWikilinkTarget(noteTitle: string, folder: string | undefined): string {
+  const folderPath = normalizeWikilinkFolderPath(folder ?? "");
+  return folderPath ? `${folderPath}/${noteTitle}` : noteTitle;
+}
+
+export function normalizeWikilinkFolderPath(value: string): string {
+  return value
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((part) => sanitizeWikilinkTarget(part))
+    .filter(Boolean)
+    .join("/");
 }
 
 function sanitizeWikilinkAlias(value: string): string {

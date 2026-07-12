@@ -233,6 +233,20 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
               });
           });
+
+        new Setting(details)
+          .setName("Linked note folder")
+          .setDesc("Home for notes created from these calendar links. Set your own folder to match your folder structure. Leave blank if you like a little chaos in your vault root.")
+          .addText((text) => {
+            protectTextInput(text.inputEl);
+            text
+              .setPlaceholder("Calendar Events")
+              .setValue(feed.wikilinkFolder ?? "")
+              .onChange(async (value) => {
+                feed.wikilinkFolder = value;
+                await this.plugin.saveSettings();
+              });
+          });
       }
 
       this.addColourSetting(details, feed);
@@ -842,6 +856,7 @@ function createFeed(): CalendarFeedSetting {
     wikilinksEnabled: false,
     wikilinkDisplayMode: "alias",
     wikilinkPrefixFormat: "yyMMdd - ",
+    wikilinkFolder: "",
   };
 }
 

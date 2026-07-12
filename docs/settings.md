@@ -70,6 +70,14 @@ The prettiest option is the alias style:
 
 That displays as `Weekly review`, but links to the dated note title `260817 - Weekly review`. Neat little Obsidian trick.
 
+If you set a linked note folder for that feed, Calendar Importer puts the target there and creates the folder for you during sync:
+
+```markdown
+- [ ] [[Calendar Events/Work/260817 - Weekly review|Weekly review]] - Monday - 09:00-09:30 📅 2026-08-17 #calendar
+```
+
+Different calendars can use different folders, so work can stay with work, school can stay with school, and your vault root can stop looking like a junk drawer.
+
 ## Destination Note
 
 Choose the note and heading Calendar Importer manages.

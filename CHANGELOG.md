@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.11
+
+- Add a per-calendar `Linked note folder` setting for event title wikilinks.
+- Render foldered links like `[[Calendar Events/Work/260817 - Weekly review|Weekly review]]`.
+- Create configured linked-note folders during sync so users do not need to prepare folders manually.
+- Normalize typed folder paths so backslashes, extra slashes, and surrounding spaces behave sensibly.
+- Add regression tests for foldered wikilink rendering, settings recovery, and sync-time folder creation.
+
 ## 1.1.10
 
 - Improve the in-app wikilink display description with direct and alias examples.
