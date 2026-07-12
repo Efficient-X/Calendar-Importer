@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- Stable checkpoint release for the current known-good sync behaviour before adding the next completion-management controls.
+- No functional changes from `1.1.13`.
+
 ## 1.1.13
 
 - Skip sync immediately when Obsidian reports the device is offline.
