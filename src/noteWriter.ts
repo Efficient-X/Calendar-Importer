@@ -1,4 +1,7 @@
-import type { CalendarTaskSyncSettings, CompletedTaskActionScope, SyncCacheEntry } from "./types";
+import type { CalendarTaskSyncSettings, CompletedTaskActionScope, SyncCacheEntry, SyncIssue } from "./types";
+
+const ERROR_REPORTING_HEADING = "## Error Reporting";
+const MAX_ERROR_REPORT_ENTRIES = 100;
 
 export interface ManagedTaskLine {
   key: string;
@@ -142,6 +145,64 @@ export function replaceCompletedTaskSection(noteContent: string, completedLines:
   const trimmed = withoutCompletedSections.trimEnd();
   const content = `${trimmed}${trimmed ? `${newline}${newline}` : ""}${section}`;
   return { content, changed: content !== noteContent };
+}
+
+export function replaceErrorReportingSection(
+  noteContent: string,
+  reports: SyncIssue[],
+  settings: CalendarTaskSyncSettings,
+): ReplaceResult {
+  const existingRanges = findHeadingRanges(noteContent, ERROR_REPORTING_HEADING);
+  const withoutReports = removeHeadingRanges(noteContent, existingRanges).trimEnd();
+  if (!settings.errorReportingEnabled) {
+    return { content: withoutReports, changed: withoutReports !== noteContent };
+  }
+
+  const newline = noteContent.includes("\r\n") ? "\r\n" : "\n";
+  const visibleReports = reports.slice(0, MAX_ERROR_REPORT_ENTRIES);
+  const lines = visibleReports.length === 0
+    ? [ERROR_REPORTING_HEADING, "No skipped or malformed events were reported during the last sync. Nice."]
+    : [
+      ERROR_REPORTING_HEADING,
+      "These events were not imported. Check the reason below, then either adjust the relevant setting or add the event manually.",
+      "",
+      ...visibleReports.flatMap((report) => [
+        `- **${escapeReportText(report.title || "Untitled event")}** (${escapeReportText(report.sourceName)}) - ${formatReportSchedule(report)}`,
+        `  - ${escapeReportText(report.reason)}`,
+      ]),
+      ...(reports.length > MAX_ERROR_REPORT_ENTRIES
+        ? ["", `- ${reports.length - MAX_ERROR_REPORT_ENTRIES} more events were skipped but are not shown here, to keep this note readable.`]
+        : []),
+    ];
+  const content = `${withoutReports}${withoutReports ? `${newline}${newline}` : ""}${lines.join(newline)}${newline}`;
+  return { content, changed: content !== noteContent };
+}
+
+function formatReportSchedule(report: SyncIssue): string {
+  if (!report.start) {
+    return "time not available";
+  }
+
+  const start = formatReportDate(report.start, report.allDay);
+  if (!report.end || report.end.getTime() <= report.start.getTime()) {
+    return report.allDay ? `${start} (all day)` : start;
+  }
+
+  if (report.allDay) {
+    const inclusiveEnd = new Date(report.end.getTime() - 24 * 60 * 60 * 1000);
+    const end = formatReportDate(inclusiveEnd, true);
+    return start === end ? `${start} (all day)` : `${start} to ${end} (all day)`;
+  }
+  return `${start} to ${formatReportDate(report.end, false)}`;
+}
+
+function formatReportDate(date: Date, allDay: boolean | undefined): string {
+  const iso = date.toISOString();
+  return allDay ? iso.slice(0, 10) : `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+function escapeReportText(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").replace(/[<>]/g, "").trim();
 }
 
 export function removeCompletedTaskSection(noteContent: string, settings: CalendarTaskSyncSettings): ReplaceResult {

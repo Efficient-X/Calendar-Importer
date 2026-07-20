@@ -1,6 +1,6 @@
 import ICAL from "ical.js";
 import { DateTime } from "luxon";
-import type { CalendarFeedSetting, CalendarTaskSyncSettings, NormalizedCalendarEvent, ParsedFeedResult, ParseWindow } from "./types";
+import type { CalendarFeedSetting, CalendarTaskSyncSettings, NormalizedCalendarEvent, ParsedFeedResult, ParseWindow, SyncIssue } from "./types";
 
 const MAX_RECURRENCE_ITERATIONS = 25000;
 const MAX_RECURRENCE_OCCURRENCES = 5000;
@@ -18,6 +18,7 @@ export function parseIcsFeed(
   window: ParseWindow,
 ): ParsedFeedResult {
   const errors: string[] = [];
+  const reports: SyncIssue[] = [];
   const events: NormalizedCalendarEvent[] = [];
   const repairedText = repairMalformedContentLines(icsText);
   const calendarColor = normalizeColor(getCalendarLevelColor(repairedText));
@@ -25,25 +26,39 @@ export function parseIcsFeed(
 
   try {
     const parsed = parseCalendarComponents(repairedText);
-    events.push(...normalizeCalendarComponents(parsed.vevents, parsed.calendarTimezone, effectiveSource, settings, window, errors));
+    events.push(...normalizeCalendarComponents(parsed.vevents, parsed.calendarTimezone, effectiveSource, settings, window, errors, reports));
   } catch (error) {
     const recovered = recoverCalendarComponentsByEvent(repairedText, source, errors, error);
-    events.push(...normalizeCalendarComponents(recovered.vevents, recovered.calendarTimezone, effectiveSource, settings, window, errors));
+    events.push(...normalizeCalendarComponents(recovered.vevents, recovered.calendarTimezone, effectiveSource, settings, window, errors, reports));
   }
 
-  return { events, errors };
+  for (const error of errors) {
+    reports.push({
+      sourceId: source.id,
+      sourceName: source.name,
+      title: "Calendar feed",
+      reason: error,
+    });
+  }
+
+  return { events, errors, reports: dedupeReports(reports) };
 }
 
 export function eventMatchesFeedFilters(event: NormalizedCalendarEvent, source: CalendarFeedSetting): boolean {
+  return getEventFilterExclusionReason(event, source) === undefined;
+}
+
+export function getEventFilterExclusionReason(event: NormalizedCalendarEvent, source: CalendarFeedSetting): string | undefined {
   const haystack = `${event.title} ${event.description ?? ""} ${event.location ?? ""}`.toLocaleLowerCase();
   const includeKeywords = splitKeywords(source.includeKeywords);
   const excludeKeywords = splitKeywords(source.excludeKeywords);
 
   if (includeKeywords.length > 0 && !includeKeywords.some((keyword) => haystack.includes(keyword))) {
-    return false;
+    return `it does not match this feed's include keywords (${includeKeywords.join(", ")}).`;
   }
 
-  return !excludeKeywords.some((keyword) => haystack.includes(keyword));
+  const excludedKeyword = excludeKeywords.find((keyword) => haystack.includes(keyword));
+  return excludedKeyword ? `it matches this feed's excluded keyword "${excludedKeyword}".` : undefined;
 }
 
 export function repairMalformedContentLines(icsText: string): string {
@@ -186,6 +201,7 @@ function normalizeCalendarComponents(
   settings: CalendarTaskSyncSettings,
   window: ParseWindow,
   errors: string[],
+  reports: SyncIssue[],
 ): NormalizedCalendarEvent[] {
   const events: NormalizedCalendarEvent[] = [];
   let grouped: Map<string, EventGroup>;
@@ -210,12 +226,10 @@ function normalizeCalendarComponents(
         }
 
         if (master.isRecurring()) {
-          events.push(...expandRecurringEvent(master, source, settings, window, errors, calendarTimezone));
+          events.push(...expandRecurringEvent(master, source, settings, window, errors, reports, calendarTimezone));
         } else {
           const normalized = normalizeEvent(master, master.startDate, master.endDate, source, settings, undefined, calendarTimezone);
-          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
-            events.push(...expandEventAndReminders(normalized, settings, window));
-          }
+          appendIfIncluded(events, normalized, settings, window, reports);
         }
       } catch (error) {
         errors.push(`Skipped ${describeEvent(master)} from ${source.name}: ${errorMessage(error)}`);
@@ -226,9 +240,7 @@ function normalizeCalendarComponents(
       for (const orphan of group.exceptions) {
         try {
           const normalized = normalizeEvent(orphan, orphan.startDate, orphan.endDate, source, settings, undefined, calendarTimezone);
-          if (normalized && shouldIncludeEvent(normalized, settings, window)) {
-            events.push(...expandEventAndReminders(normalized, settings, window));
-          }
+          appendIfIncluded(events, normalized, settings, window, reports);
         } catch (error) {
           errors.push(`Skipped ${describeEvent(orphan)} from ${source.name}: ${errorMessage(error)}`);
         }
@@ -605,6 +617,7 @@ function expandRecurringEvent(
   settings: CalendarTaskSyncSettings,
   window: ParseWindow,
   errors: string[],
+  reports: SyncIssue[],
   calendarTimezone: string | undefined,
 ): NormalizedCalendarEvent[] {
   const occurrences: NormalizedCalendarEvent[] = [];
@@ -638,9 +651,7 @@ function expandRecurringEvent(
       const occurrenceStart = details.startDate;
       const occurrenceEnd = details.endDate;
       const normalized = normalizeEvent(details.item, occurrenceStart, occurrenceEnd, source, settings, next, calendarTimezone);
-      if (normalized && shouldIncludeEvent(normalized, settings, window)) {
-        occurrences.push(...expandEventAndReminders(normalized, settings, window));
-      }
+      appendIfIncluded(occurrences, normalized, settings, window, reports);
     }
   } catch (error) {
     errors.push(`Could not expand recurrence for ${event.summary || event.uid}: ${errorMessage(error)}`);
@@ -708,14 +719,7 @@ function normalizeEvent(
   }
 
   const allDay = Boolean(startTime.isDate);
-  if (allDay && !settings.includeAllDayEvents) {
-    return null;
-  }
-
   const status = upper(event.component.getFirstPropertyValue("status"));
-  if (status === "CANCELLED" && !settings.includeCancelledEvents) {
-    return null;
-  }
 
   const startTimezone = getPropertyTimezone(event.component, "dtstart") || calendarTimezone;
   const endTimezone = getPropertyTimezone(event.component, "dtend") || startTimezone;
@@ -1003,18 +1007,96 @@ function dedupeDates(dates: Date[]): Date[] {
   return result;
 }
 
-function shouldIncludeEvent(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings, window: ParseWindow): boolean {
-  if (event.status === "CANCELLED" && !settings.includeCancelledEvents) {
-    return false;
+function appendIfIncluded(
+  target: NormalizedCalendarEvent[],
+  event: NormalizedCalendarEvent | null,
+  settings: CalendarTaskSyncSettings,
+  window: ParseWindow,
+  reports: SyncIssue[],
+): void {
+  if (!event) {
+    return;
   }
 
+  const exclusionReason = getEventExclusionReason(event, settings, window);
+  if (exclusionReason) {
+    if (isNearSyncWindow(event, window)) {
+      reports.push(toSyncIssue(event, exclusionReason));
+    }
+    return;
+  }
+
+  target.push(...expandEventAndReminders(event, settings, window));
+}
+
+export function getEventExclusionReason(
+  event: NormalizedCalendarEvent,
+  settings: CalendarTaskSyncSettings,
+  window: ParseWindow,
+): string | undefined {
+  if (event.allDay && !settings.includeAllDayEvents) {
+    return "all-day events are turned off in Settings.";
+  }
+  if (event.status === "CANCELLED" && !settings.includeCancelledEvents) {
+    return "it is marked as cancelled and cancelled events are turned off in Settings.";
+  }
   if (event.start >= window.end) {
-    return false;
+    return `it starts after the current sync window, which ends ${formatWindowDate(window.end)}.`;
   }
   if (!event.end || event.end.getTime() <= event.start.getTime()) {
-    return event.start >= window.start;
+    return event.start < window.start
+      ? `it is before the current sync window, which starts ${formatWindowDate(window.start)}.`
+      : undefined;
   }
-  return event.end > window.start;
+  return event.end <= window.start
+    ? `it ended before the current sync window, which starts ${formatWindowDate(window.start)}.`
+    : undefined;
+}
+
+function shouldIncludeEvent(event: NormalizedCalendarEvent, settings: CalendarTaskSyncSettings, window: ParseWindow): boolean {
+  return getEventExclusionReason(event, settings, window) === undefined;
+}
+
+function isNearSyncWindow(event: NormalizedCalendarEvent, window: ParseWindow): boolean {
+  const reportMarginMs = 7 * MS_PER_DAY;
+  const reportStart = window.start.getTime() - reportMarginMs;
+  const reportEnd = window.end.getTime() + reportMarginMs;
+  const end = event.end && event.end.getTime() > event.start.getTime() ? event.end.getTime() : event.start.getTime();
+  return end >= reportStart && event.start.getTime() <= reportEnd;
+}
+
+function toSyncIssue(event: NormalizedCalendarEvent, reason: string): SyncIssue {
+  return {
+    sourceId: event.sourceId,
+    sourceName: event.sourceName,
+    title: event.title,
+    start: event.start,
+    end: event.end,
+    allDay: event.allDay,
+    reason,
+  };
+}
+
+function formatWindowDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function dedupeReports(reports: SyncIssue[]): SyncIssue[] {
+  const seen = new Set<string>();
+  return reports.filter((report) => {
+    const key = [
+      report.sourceId,
+      report.title,
+      report.start?.toISOString() ?? "",
+      report.end?.toISOString() ?? "",
+      report.reason,
+    ].join("\u0000");
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function icalTimeKey(time: ICAL.Time): string {

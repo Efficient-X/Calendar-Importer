@@ -62,6 +62,7 @@ export const DEFAULT_SETTINGS: CalendarTaskSyncSettings = {
   sourceTag: "",
   preserveManualCompletion: true,
   backupBeforeSync: false,
+  errorReportingEnabled: true,
   lastSyncTime: "",
   lastSyncResult: "",
   lastError: "",

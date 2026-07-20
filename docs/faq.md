@@ -60,4 +60,8 @@ Turn on `Sync on startup` if you want a fresh calendar whenever you open Obsidia
 
 ## What happens if one calendar feed is temporarily broken?
 
-Calendar Importer stops that sync before changing any notes. Your last good calendar tasks stay where they are, and the settings page records the error. Fix the link or connection, run `Sync now`, and off you go.
+Calendar Importer leaves your active calendar tasks exactly as they were. When Error Reporting is enabled, it adds a short report to the bottom of the calendar note as well as showing an Obsidian notice with the first safe error message.
+
+For a malformed individual event, Calendar Importer keeps importing the other valid events and lists the troublesome one in Error Reporting. That way one odd calendar entry does not hold the whole party hostage.
+
+Fix the link, connection, or setting behind the report, run `Sync now`, and off you go.

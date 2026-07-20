@@ -1,7 +1,7 @@
 # Calendar Importer
 
 <p align="center">
-  <img src="assets/calendar-importer.png" alt="Calendar Importer" width="760">
+  <img src="assets/calendar-importer.webp" alt="Calendar Importer calendar-to-task workflow" width="760">
 </p>
 
 <p align="center">
@@ -120,6 +120,7 @@ Want more ready-to-paste snippets? See [daily note recipes](https://github.com/E
 - Moves completed calendar tasks into a completed section if you want.
 - Can reopen accidental completions from the last 24 hours, or reopen the whole completed pile when you need a proper do-over.
 - Can clear completed task history and self-clean old sync cache entries.
+- Flags skipped, filtered, malformed, and temporarily unavailable calendar events in an optional Error Reporting section, so surprises have somewhere to go.
 - Can turn event titles into wikilinks, including links to per-calendar note folders.
 - Handles recurring events, all-day events, and multi-day events.
 - Can add colours, tags, source labels, locations, descriptions, and reminders.

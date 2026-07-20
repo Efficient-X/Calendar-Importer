@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { formatTemplatePath, getSyncWindow } from "./dateUtils";
 import { renderEventTask, resolveWikilinkFolderPath } from "./eventRenderer";
 import { sortEvents } from "./eventSorter";
-import { eventMatchesFeedFilters, parseIcsFeed } from "./icsParser";
+import { getEventFilterExclusionReason, parseIcsFeed } from "./icsParser";
 import {
   buildManagedBlock,
   clearCompletedTasksFromNote,
@@ -14,6 +14,7 @@ import {
   reopenCompletedTasksInNote,
   removeCompletedTaskSection,
   replaceCompletedTaskSection,
+  replaceErrorReportingSection,
   replaceManagedBlock,
 } from "./noteWriter";
 import { isLikelyIcs, maskUrl, normalizeFeedUrl, redactSensitiveUrls } from "./security";
@@ -24,6 +25,7 @@ import type {
   NormalizedCalendarEvent,
   SyncCacheEntry,
   SyncChangeSummary,
+  SyncIssue,
   SyncResult,
 } from "./types";
 
@@ -32,6 +34,7 @@ type SettingsGetter = () => CalendarTaskSyncSettings;
 interface FeedEventsResult {
   events: NormalizedCalendarEvent[];
   filtered: number;
+  reports: SyncIssue[];
 }
 
 interface BuildNotePlan {
@@ -65,6 +68,7 @@ export class CalendarTaskSyncEngine {
         eventCount: 0,
         message: "A sync is already running; skipped this request.",
         errors: [],
+        reportCount: 0,
       };
     }
 
@@ -96,6 +100,7 @@ export class CalendarTaskSyncEngine {
     const window = getSyncWindow(settings.pastDays, settings.futureDays, settings.timezone);
     const enabledFeeds = settings.feeds.filter((feed) => feed.enabled && feed.url.trim());
     const events: NormalizedCalendarEvent[] = [];
+    const reports: SyncIssue[] = [];
     let filtered = 0;
 
     if (enabledFeeds.length === 0) {
@@ -106,6 +111,7 @@ export class CalendarTaskSyncEngine {
         eventCount: 0,
         message,
         errors: [message],
+        reportCount: 0,
       };
     }
 
@@ -117,6 +123,7 @@ export class CalendarTaskSyncEngine {
         eventCount: 0,
         message,
         errors: [message],
+        reportCount: 0,
       };
     }
 
@@ -125,32 +132,41 @@ export class CalendarTaskSyncEngine {
     for (const feed of enabledFeeds) {
       const feedResult = await this.fetchAndParseFeed(feed.id, errors, window);
       events.push(...feedResult.events);
+      reports.push(...feedResult.reports);
       filtered += feedResult.filtered;
     }
 
     if (errors.length > 0) {
+      reports.push(...createFailureReports(errors));
+      const reportPath = await this.writeErrorReportsOnly(settings, reports, errors);
       return {
         success: false,
         skipped: false,
         eventCount: events.length,
-        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. No notes were changed.`,
+        notePath: reportPath,
+        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. ${reportPath ? "Calendar tasks were left alone and Error Reporting was updated." : "No notes were changed."}`,
         errors,
+        reportCount: reports.length,
       };
     }
 
     await this.ensureLinkedNoteFolders(settings, errors);
     if (errors.length > 0) {
+      reports.push(...createFailureReports(errors));
+      const reportPath = await this.writeErrorReportsOnly(settings, reports, errors);
       return {
         success: false,
         skipped: false,
         eventCount: events.length,
-        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. No notes were changed.`,
+        notePath: reportPath,
+        message: `Sync stopped safely after ${errors.length} error${errors.length === 1 ? "" : "s"}. ${reportPath ? "Calendar tasks were left alone and Error Reporting was updated." : "No notes were changed."}`,
         errors,
+        reportCount: reports.length,
       };
     }
 
     const sortedEvents = sortEvents(events, settings);
-    const writeResult = await this.writeEvents(sortedEvents, settings, window, errors, filtered);
+    const writeResult = await this.writeEvents(sortedEvents, settings, window, errors, filtered, reports);
 
     const success = errors.length === 0;
     const summaryText = formatChangeSummary(writeResult.changeSummary);
@@ -165,6 +181,7 @@ export class CalendarTaskSyncEngine {
       notePath: writeResult.notePath,
       message,
       errors,
+      reportCount: reports.length,
       changeSummary: writeResult.changeSummary,
     };
   }
@@ -173,7 +190,7 @@ export class CalendarTaskSyncEngine {
     const settings = this.getSettings();
     const feed = settings.feeds.find((candidate) => candidate.id === feedId);
     if (!feed) {
-      return { events: [], filtered: 0 };
+      return { events: [], filtered: 0, reports: [] };
     }
 
     try {
@@ -187,29 +204,45 @@ export class CalendarTaskSyncEngine {
 
       if (response.status < 200 || response.status >= 300) {
         errors.push(`${feed.name}: feed returned HTTP ${response.status} (${maskUrl(feed.url)}).`);
-        return { events: [], filtered: 0 };
+        return { events: [], filtered: 0, reports: [] };
       }
 
       const text = response.text;
       if (new TextEncoder().encode(text).byteLength > MAX_FEED_SIZE_BYTES) {
         errors.push(`${feed.name}: feed is larger than the 25 MB safety limit (${maskUrl(feed.url)}).`);
-        return { events: [], filtered: 0 };
+        return { events: [], filtered: 0, reports: [] };
       }
       if (!isLikelyIcs(text)) {
         errors.push(`${feed.name}: response did not look like an iCalendar feed (${maskUrl(feed.url)}).`);
-        return { events: [], filtered: 0 };
+        return { events: [], filtered: 0, reports: [] };
       }
 
       const parsed = parseIcsFeed(text, feed, settings, window);
-      errors.push(...parsed.errors);
-      const filteredEvents = parsed.events.filter((event) => eventMatchesFeedFilters(event, feed));
+      const reports = [...parsed.reports];
+      const filteredEvents = parsed.events.filter((event) => {
+        const reason = getEventFilterExclusionReason(event, feed);
+        if (!reason) {
+          return true;
+        }
+        reports.push({
+          sourceId: event.sourceId,
+          sourceName: event.sourceName,
+          title: event.title,
+          start: event.start,
+          end: event.end,
+          allDay: event.allDay,
+          reason,
+        });
+        return false;
+      });
       return {
         events: filteredEvents,
         filtered: parsed.events.length - filteredEvents.length,
+        reports,
       };
     } catch (error) {
       errors.push(`${feed.name}: could not fetch feed ${maskUrl(feed.url)}: ${redactSensitiveUrls(errorMessage(error))}`);
-      return { events: [], filtered: 0 };
+      return { events: [], filtered: 0, reports: [] };
     }
   }
 
@@ -219,15 +252,40 @@ export class CalendarTaskSyncEngine {
     window: { start: Date; end: Date },
     errors: string[],
     filtered: number,
+    reports: SyncIssue[],
   ): Promise<{ notePath?: string; changeSummary: SyncChangeSummary }> {
     if (settings.useDailyNotes) {
-      const summary = await this.writeDailyNotes(events, settings, window, errors, filtered);
+      const summary = await this.writeDailyNotes(events, settings, window, errors, filtered, reports);
       return { notePath: settings.dailyNoteTemplate, changeSummary: summary };
     }
 
     const path = this.resolveNotePath(new Date(), settings);
-    const summary = await this.writeOneNote(path, events, settings, errors, filtered);
+    const summary = await this.writeOneNote(path, events, settings, errors, filtered, reports);
     return { notePath: path, changeSummary: summary };
+  }
+
+  private async writeErrorReportsOnly(
+    settings: CalendarTaskSyncSettings,
+    reports: SyncIssue[],
+    errors: string[],
+  ): Promise<string | undefined> {
+    if (!settings.errorReportingEnabled) {
+      return undefined;
+    }
+
+    const path = this.resolveNotePath(new Date(), settings);
+    try {
+      await this.saveOpenMarkdownViews(path);
+      const file = await this.ensureNote(path, settings.createNoteIfMissing);
+      if (!file) {
+        return undefined;
+      }
+      await this.app.vault.process(file, (content) => replaceErrorReportingSection(content, reports, settings).content);
+      return path;
+    } catch (error) {
+      errors.push(`${path}: could not update Error Reporting: ${errorMessage(error)}`);
+      return undefined;
+    }
   }
 
   private async ensureLinkedNoteFolders(settings: CalendarTaskSyncSettings, errors: string[]): Promise<void> {
@@ -280,10 +338,15 @@ export class CalendarTaskSyncEngine {
     window: { start: Date; end: Date },
     errors: string[],
     filtered: number,
+    reports: SyncIssue[],
   ): Promise<SyncChangeSummary> {
     const eventsByPath = groupEventsByPath(events, settings);
     const allPaths = new Set(eventsByPath.keys());
     const summary = emptySummary(filtered);
+    const reportPath = this.resolveNotePath(new Date(), settings);
+    if (settings.errorReportingEnabled) {
+      allPaths.add(reportPath);
+    }
 
     let cursor = DateTime.fromJSDate(window.start).setZone(settings.timezone || "local").startOf("day");
     const end = DateTime.fromJSDate(window.end).setZone(settings.timezone || "local").startOf("day");
@@ -297,7 +360,14 @@ export class CalendarTaskSyncEngine {
     }
 
     for (const path of allPaths) {
-      addSummary(summary, await this.writeOneNote(path, eventsByPath.get(path) ?? [], settings, errors, 0));
+      addSummary(summary, await this.writeOneNote(
+        path,
+        eventsByPath.get(path) ?? [],
+        settings,
+        errors,
+        0,
+        path === reportPath ? reports : [],
+      ));
     }
 
     return summary;
@@ -309,10 +379,11 @@ export class CalendarTaskSyncEngine {
     settings: CalendarTaskSyncSettings,
     errors: string[],
     filtered: number,
+    reports: SyncIssue[],
   ): Promise<SyncChangeSummary> {
     try {
       await this.saveOpenMarkdownViews(path);
-      const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0);
+      const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0 || (settings.errorReportingEnabled && reports.length > 0));
       if (!file) {
         errors.push(`${path}: note does not exist and note creation is disabled.`);
         return emptySummary(filtered);
@@ -320,7 +391,7 @@ export class CalendarTaskSyncEngine {
 
       if (settings.backupBeforeSync) {
         const existing = await this.app.vault.read(file);
-        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered);
+        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered, reports);
         if (update.content !== existing) {
           await this.createBackup(file, existing);
         }
@@ -328,7 +399,7 @@ export class CalendarTaskSyncEngine {
 
       const outcome: { plan?: BuildNotePlan } = {};
       await this.app.vault.process(file, (existing) => {
-        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered);
+        const update = this.prepareNoteUpdate(path, events, settings, existing, filtered, reports);
         outcome.plan = update.plan;
         return update.content;
       });
@@ -349,9 +420,10 @@ export class CalendarTaskSyncEngine {
     settings: CalendarTaskSyncSettings,
     existing: string,
     filtered: number,
+    reports: SyncIssue[],
   ): { plan: BuildNotePlan; content: string } {
     if (settings.taskLayout === "chronological") {
-      return this.prepareChronologicalNoteUpdate(path, events, settings, existing, filtered);
+      return this.prepareChronologicalNoteUpdate(path, events, settings, existing, filtered, reports);
     }
 
     const completionMove = settings.completedTaskMode === "move-to-completed-section"
@@ -364,7 +436,7 @@ export class CalendarTaskSyncEngine {
     const completedReplacement = settings.completedTaskMode === "move-to-completed-section"
       ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
       : activeReplacement;
-    return { plan, content: completedReplacement.content };
+    return { plan, content: replaceErrorReportingSection(completedReplacement.content, reports, settings).content };
   }
 
   private prepareChronologicalNoteUpdate(
@@ -373,12 +445,13 @@ export class CalendarTaskSyncEngine {
     settings: CalendarTaskSyncSettings,
     existing: string,
     filtered: number,
+    reports: SyncIssue[],
   ): { plan: BuildNotePlan; content: string } {
     const completedLines = settings.preserveManualCompletion ? extractCompletedTaskLines(existing, settings) : {};
     const plan = this.buildChronologicalNotePlan(path, events, settings, completedLines, filtered);
     const withoutCompletedSection = removeCompletedTaskSection(existing, settings).content;
     const activeReplacement = replaceManagedBlock(withoutCompletedSection, plan.activeBlock, settings);
-    return { plan, content: activeReplacement.content };
+    return { plan, content: replaceErrorReportingSection(activeReplacement.content, reports, settings).content };
   }
 
   private buildChronologicalNotePlan(
@@ -717,6 +790,15 @@ function formatChangeSummary(summary: SyncChangeSummary | undefined): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function createFailureReports(errors: string[]): SyncIssue[] {
+  return errors.map((reason) => ({
+    sourceId: "calendar-importer",
+    sourceName: "Calendar Importer",
+    title: "Calendar feed needs attention",
+    reason,
+  }));
 }
 
 function removeCompletedEntriesFromCache(

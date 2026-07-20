@@ -16,6 +16,7 @@ import {
   moveCompletedTasksToCompletedSection,
   prepareCompletedTaskLines,
   reopenCompletedTasksInNote,
+  replaceErrorReportingSection,
   replaceCompletedTaskSection,
   replaceManagedBlock,
 } from "../src/noteWriter";
@@ -67,6 +68,24 @@ DTEND;VALUE=DATE:20260701
 END:VEVENT`), feed, settings, window);
 
     expect(result.events).toHaveLength(0);
+  });
+
+  it("reports a recently ended multi-day event that falls just outside the sync window", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:pet-sitting
+SUMMARY:Appointment: Pet Sitting with Emily
+DTSTART;VALUE=DATE:20260717
+DTEND;VALUE=DATE:20260720
+END:VEVENT`), feed, settings, {
+      start: new Date("2026-07-20T00:00:00Z"),
+      end: new Date("2026-08-20T00:00:00Z"),
+    });
+
+    expect(result.events).toHaveLength(0);
+    const report = result.reports.find((candidate) => candidate.title === "Appointment: Pet Sitting with Emily");
+    expect(report?.allDay).toBe(true);
+    expect(report?.reason).toContain("ended before the current sync window");
   });
 
   it("includes the in-window portion of a recurring event that started earlier", () => {
@@ -1135,6 +1154,32 @@ describe("note block management", () => {
 
     expect(replaced).toContain("## My Calendar Events\n- [ ] Active");
     expect(replaced).toContain("\n\n## Completed Calendar Tasks\n");
+  });
+
+  it("writes a friendly error report for skipped calendar events", () => {
+    const note = "## My Calendar Events\n- [ ] Active 📅 2026-07-20\n";
+    const replaced = replaceErrorReportingSection(note, [{
+      sourceId: "private",
+      sourceName: "Private calendar",
+      title: "Appointment: Pet Sitting with Emily",
+      start: new Date("2026-07-17T00:00:00Z"),
+      end: new Date("2026-07-20T00:00:00Z"),
+      allDay: true,
+      reason: "it ended before the current sync window, which starts 2026-07-20.",
+    }], settings).content;
+
+    expect(replaced).toContain("## Error Reporting");
+    expect(replaced).toContain("Appointment: Pet Sitting with Emily");
+    expect(replaced).toContain("2026-07-17 to 2026-07-19 (all day)");
+    expect(replaced).toContain("ended before the current sync window");
+  });
+
+  it("removes the error report when reporting is turned off", () => {
+    const note = "## My Calendar Events\n- [ ] Active\n\n## Error Reporting\nOld report\n";
+    const replaced = replaceErrorReportingSection(note, [], { ...settings, errorReportingEnabled: false }).content;
+
+    expect(replaced).not.toContain("Error Reporting");
+    expect(replaced).toContain("## My Calendar Events");
   });
 
   it("repairs duplicate active headings and moves completed tasks to the bottom", () => {

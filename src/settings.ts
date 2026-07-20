@@ -839,6 +839,16 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
+      .setName("Error reporting")
+      .setDesc("Adds an Error Reporting section to the calendar note and raises a notice when an event is skipped or malformed. Turn it off if you prefer a quieter life.")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.errorReportingEnabled)
+        .onChange(async (value) => {
+          this.plugin.settings.errorReportingEnabled = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
       .setName("Clear sync cache")
       .addButton((button) => styleDestructiveButton(button)
         .setButtonText("Clear")

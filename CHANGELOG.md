@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2
+
+- Add Error Reporting to the calendar note, on by default but easy to switch off, so skipped or malformed events are visible instead of quietly disappearing.
+- Show an Obsidian notice when a successful sync has items that need attention.
+- Explain nearby events excluded by the sync window, including multi-day all-day events that ended before the selected look-back period.
+- Report exclusions caused by all-day, cancellation, include-keyword, and exclude-keyword settings.
+- Keep valid events syncing when a malformed individual event can be recovered or skipped; true feed failures leave calendar tasks untouched and record the failure in Error Reporting.
+- Add regression coverage for the Pet Sitting multi-day date-window case, report rendering, and failed-feed reporting.
+
 ## 1.2.1
 
 - Add hotkeyable actions to clear completed calendar tasks, reopen recently completed tasks, and reopen all completed tasks.

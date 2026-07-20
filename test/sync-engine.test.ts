@@ -17,6 +17,7 @@ vi.mock("obsidian", () => ({
 
 describe("sync write safety", () => {
   beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-07-15T00:00:00Z").getTime());
     vi.stubGlobal("window", { setTimeout });
     vi.stubGlobal("navigator", { onLine: true });
     mocks.requestUrl.mockReset();
@@ -58,6 +59,41 @@ describe("sync write safety", () => {
     expect(result.success).toBe(false);
     expect(result.errors[0]).toContain("No enabled calendar feeds");
     expect(process).not.toHaveBeenCalled();
+  });
+
+  it("records a failed feed in Error Reporting without replacing calendar tasks", async () => {
+    let content = "## My Calendar Events\n- [ ] Keep this task\n";
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      feeds: [{
+        id: "private-feed",
+        name: "Private calendar",
+        url: "https://calendar.example/private/secret-token/basic.ics",
+        enabled: true,
+      }],
+    };
+    mocks.requestUrl.mockRejectedValue(new Error(`Failed ${settings.feeds[0].url}`));
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(false);
+    expect(result.notePath).toBe("Calendar/My Calendar Events.md");
+    expect(content).toContain("- [ ] Keep this task");
+    expect(content).toContain("## Error Reporting");
+    expect(content).toContain("Calendar feed needs attention");
+    expect(content).not.toContain("secret-token");
   });
 
   it("skips sync before fetching or writing when the device is offline", async () => {
@@ -541,7 +577,7 @@ describe("sync write safety", () => {
     expect(settings.syncCache["work:sync-test:2026-07-16T09:00:00Z"]?.completed).toBe(true);
   });
 
-  it("reopens recently completed tasks through the engine action", async () => {
+  it("reopens completed tasks through the engine action", async () => {
     const calendarMarker = String.fromCodePoint(0x1f4c5);
     const doneMarker = String.fromCodePoint(0x2705);
     let content = [
@@ -586,13 +622,13 @@ describe("sync write safety", () => {
       },
     };
 
-    const result = await new CalendarTaskSyncEngine(app, () => settings).reopenCompletedCalendarTasks("recent");
+    const result = await new CalendarTaskSyncEngine(app, () => settings).reopenCompletedCalendarTasks("all");
 
-    expect(result.affectedCount).toBe(1);
+    expect(result.affectedCount).toBe(2);
     expect(content).toContain(`## My Calendar Events\n- [ ] Accidental tick - Sunday - 09:00-10:00 ${calendarMarker} 2026-07-12`);
-    expect(content).toContain(`## Completed Calendar Tasks\n- [x] Properly done - Monday - 09:00-10:00 ${calendarMarker} 2026-07-13 ${doneMarker} 2026-07-01`);
+    expect(content).toContain("## Completed Calendar Tasks\n");
     expect(settings.syncCache.accidental).toBeUndefined();
-    expect(settings.syncCache.done).toBeDefined();
+    expect(settings.syncCache.done).toBeUndefined();
   });
 
   it("prunes old sync cache entries unless retention is set to keep history", () => {

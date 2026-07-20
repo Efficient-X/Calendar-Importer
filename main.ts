@@ -120,9 +120,15 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     await this.queueSettingsSave();
 
     if (result.success) {
-      new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}.`);
+      if (this.settings.errorReportingEnabled && result.reportCount > 0) {
+        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}. ${result.reportCount} item${result.reportCount === 1 ? " needs" : "s need"} attention; see Error Reporting in the calendar note.`);
+      } else {
+        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}.`);
+      }
     } else {
-      new Notice(`${PLUGIN_NAME}: sync failed. Check settings for details.`);
+      const reason = summarizeSyncError(result.errors[0]);
+      const reportHint = this.settings.errorReportingEnabled ? " See Error Reporting in the calendar note." : "";
+      new Notice(`${PLUGIN_NAME}: sync failed${reason ? `: ${reason}` : "."}${reportHint}`);
     }
 
     return result;
@@ -244,6 +250,14 @@ function isSettingsData(value: unknown): value is Partial<CalendarTaskSyncSettin
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function summarizeSyncError(value: string | undefined): string {
+  if (!value) {
+    return "";
+  }
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > 180 ? `${compact.slice(0, 177)}...` : compact;
 }
 
 function migrateTaskTemplate(value: string): string {

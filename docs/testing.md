@@ -9,6 +9,7 @@ Here is the quick test lap:
 - Try an all-day event.
 - Try a multi-day event.
 - Try an event with a location or description.
+- Temporarily set the look-back window to `0` and confirm a just-finished multi-day event appears in Error Reporting with the reason it was skipped.
 - Confirm private feed links are not shown in normal status messages.
 - Confirm Tasks queries can find imported events.
 - Disconnect the network, run a sync, and confirm the last good tasks remain untouched.

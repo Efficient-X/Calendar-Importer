@@ -63,6 +63,7 @@ export interface CalendarTaskSyncSettings {
   sourceTag: string;
   preserveManualCompletion: boolean;
   backupBeforeSync: boolean;
+  errorReportingEnabled: boolean;
   lastSyncTime: string;
   lastSyncResult: string;
   lastError: string;
@@ -114,6 +115,16 @@ export interface SyncChangeSummary {
   filtered: number;
 }
 
+export interface SyncIssue {
+  sourceId: string;
+  sourceName: string;
+  title: string;
+  start?: Date;
+  end?: Date;
+  allDay?: boolean;
+  reason: string;
+}
+
 export interface ParseWindow {
   start: Date;
   end: Date;
@@ -126,6 +137,7 @@ export interface SyncResult {
   notePath?: string;
   message: string;
   errors: string[];
+  reportCount: number;
   changeSummary?: SyncChangeSummary;
 }
 
@@ -137,4 +149,5 @@ export interface RenderContext {
 export interface ParsedFeedResult {
   events: NormalizedCalendarEvent[];
   errors: string[];
+  reports: SyncIssue[];
 }
