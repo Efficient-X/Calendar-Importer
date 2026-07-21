@@ -231,6 +231,7 @@ export class CalendarTaskSyncEngine {
           start: event.start,
           end: event.end,
           allDay: event.allDay,
+          event,
           reason,
         });
         return false;
@@ -422,8 +423,9 @@ export class CalendarTaskSyncEngine {
     filtered: number,
     reports: SyncIssue[],
   ): { plan: BuildNotePlan; content: string } {
+    const visibleReports = this.excludeReportsForCompletedTasks(reports, existing, settings);
     if (settings.taskLayout === "chronological") {
-      return this.prepareChronologicalNoteUpdate(path, events, settings, existing, filtered, reports);
+      return this.prepareChronologicalNoteUpdate(path, events, settings, existing, filtered, visibleReports);
     }
 
     const completionMove = settings.completedTaskMode === "move-to-completed-section"
@@ -436,7 +438,16 @@ export class CalendarTaskSyncEngine {
     const completedReplacement = settings.completedTaskMode === "move-to-completed-section"
       ? replaceCompletedTaskSection(activeReplacement.content, plan.completedLines, settings)
       : activeReplacement;
-    return { plan, content: replaceErrorReportingSection(completedReplacement.content, reports, settings).content };
+    return { plan, content: replaceErrorReportingSection(completedReplacement.content, visibleReports, settings).content };
+  }
+
+  private excludeReportsForCompletedTasks(
+    reports: SyncIssue[],
+    noteContent: string,
+    settings: CalendarTaskSyncSettings,
+  ): SyncIssue[] {
+    const completed = extractCompletedTaskLines(noteContent, settings);
+    return reports.filter((report) => !report.event || !completed[getTaskIdentity(renderEventTask(report.event, settings))]);
   }
 
   private prepareChronologicalNoteUpdate(

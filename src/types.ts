@@ -122,6 +122,7 @@ export interface SyncIssue {
   start?: Date;
   end?: Date;
   allDay?: boolean;
+  event?: NormalizedCalendarEvent;
   reason: string;
 }
 

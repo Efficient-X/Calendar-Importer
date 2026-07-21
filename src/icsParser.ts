@@ -1020,7 +1020,7 @@ function appendIfIncluded(
 
   const exclusionReason = getEventExclusionReason(event, settings, window);
   if (exclusionReason) {
-    if (isNearSyncWindow(event, window)) {
+    if (overlapsSyncWindow(event, window)) {
       reports.push(toSyncIssue(event, exclusionReason));
     }
     return;
@@ -1057,12 +1057,9 @@ function shouldIncludeEvent(event: NormalizedCalendarEvent, settings: CalendarTa
   return getEventExclusionReason(event, settings, window) === undefined;
 }
 
-function isNearSyncWindow(event: NormalizedCalendarEvent, window: ParseWindow): boolean {
-  const reportMarginMs = 7 * MS_PER_DAY;
-  const reportStart = window.start.getTime() - reportMarginMs;
-  const reportEnd = window.end.getTime() + reportMarginMs;
+function overlapsSyncWindow(event: NormalizedCalendarEvent, window: ParseWindow): boolean {
   const end = event.end && event.end.getTime() > event.start.getTime() ? event.end.getTime() : event.start.getTime();
-  return end >= reportStart && event.start.getTime() <= reportEnd;
+  return end > window.start.getTime() && event.start.getTime() < window.end.getTime();
 }
 
 function toSyncIssue(event: NormalizedCalendarEvent, reason: string): SyncIssue {
@@ -1073,6 +1070,7 @@ function toSyncIssue(event: NormalizedCalendarEvent, reason: string): SyncIssue 
     start: event.start,
     end: event.end,
     allDay: event.allDay,
+    event,
     reason,
   };
 }

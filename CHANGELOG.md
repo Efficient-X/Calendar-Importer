@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+- Keep Error Reporting focused on events that actually overlap the selected sync window; old and future out-of-range events are no longer listed.
+- Suppress reports for calendar tasks that are already marked complete, so historical completed items stay out of the way as time moves on.
+- Add regression coverage for out-of-range and range-crossing events.
+
 ## 1.2.2
 
 - Add Error Reporting to the calendar note, on by default but easy to switch off, so skipped or malformed events are visible instead of quietly disappearing.

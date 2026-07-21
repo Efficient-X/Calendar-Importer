@@ -139,7 +139,7 @@ Sync cache retention keeps old cache entries from building up forever. The defau
 
 Error reporting is on by default. It adds an `## Error Reporting` section at the bottom of the calendar note whenever Calendar Importer skips an event or cannot read a feed.
 
-The report includes the event title, its date or time when available, and a plain-English reason. Common examples are a date falling outside your sync window, an all-day event being disabled, a keyword filter excluding it, or a provider feed being temporarily unavailable. A sync notice points you there too, so the plugin does not quietly eat your plans.
+The report includes the event title, its date or time when available, and a plain-English reason. It only lists events that overlap your selected sync window, and it leaves already-completed tasks alone. Common examples are an all-day event being disabled, a keyword filter excluding it, or a provider feed being temporarily unavailable. A sync notice points you there too, so the plugin does not quietly eat your plans.
 
 Turn it off in Safety if you prefer a quieter note. Existing reports disappear on the next successful sync.
 

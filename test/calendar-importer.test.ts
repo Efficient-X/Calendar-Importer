@@ -70,7 +70,7 @@ END:VEVENT`), feed, settings, window);
     expect(result.events).toHaveLength(0);
   });
 
-  it("reports a recently ended multi-day event that falls just outside the sync window", () => {
+  it("does not report a multi-day event that ended before the sync window", () => {
     const result = parseIcsFeed(ics(`
 BEGIN:VEVENT
 UID:pet-sitting
@@ -83,9 +83,23 @@ END:VEVENT`), feed, settings, {
     });
 
     expect(result.events).toHaveLength(0);
-    const report = result.reports.find((candidate) => candidate.title === "Appointment: Pet Sitting with Emily");
-    expect(report?.allDay).toBe(true);
-    expect(report?.reason).toContain("ended before the current sync window");
+    expect(result.reports).not.toContainEqual(expect.objectContaining({ title: "Appointment: Pet Sitting with Emily" }));
+  });
+
+  it("reports an excluded event only when it overlaps the sync window", () => {
+    const result = parseIcsFeed(ics(`
+BEGIN:VEVENT
+UID:overlapping-all-day
+SUMMARY:Project retreat
+DTSTART;VALUE=DATE:20260630
+DTEND;VALUE=DATE:20260703
+END:VEVENT`), feed, { ...settings, includeAllDayEvents: false }, window);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.reports).toContainEqual(expect.objectContaining({
+      title: "Project retreat",
+      reason: "all-day events are turned off in Settings.",
+    }));
   });
 
   it("includes the in-window portion of a recurring event that started earlier", () => {

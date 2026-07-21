@@ -96,6 +96,55 @@ describe("sync write safety", () => {
     expect(content).not.toContain("secret-token");
   });
 
+  it("does not report an excluded event that is already completed", async () => {
+    let content = [
+      "## My Calendar Events",
+      "",
+      "## Completed Calendar Tasks",
+      "- [x] Focus day - Wednesday - All day 📅 2026-07-15",
+      "",
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn(() => file),
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      timezone: "UTC",
+      includeAllDayEvents: false,
+      includeColorSwatch: false,
+      feeds: [{ id: "private", name: "Private", url: "https://calendar.example/private.ics", enabled: true }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        "UID:focus-day",
+        "SUMMARY:Focus day",
+        "DTSTART;VALUE=DATE:20260715",
+        "DTEND;VALUE=DATE:20260716",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect(content).toContain("## Completed Calendar Tasks");
+    expect(content).not.toContain("**Focus day**");
+  });
+
   it("skips sync before fetching or writing when the device is offline", async () => {
     vi.stubGlobal("navigator", { onLine: false });
     const process = vi.fn();

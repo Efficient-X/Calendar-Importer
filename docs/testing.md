@@ -9,7 +9,8 @@ Here is the quick test lap:
 - Try an all-day event.
 - Try a multi-day event.
 - Try an event with a location or description.
-- Temporarily set the look-back window to `0` and confirm a just-finished multi-day event appears in Error Reporting with the reason it was skipped.
+- Confirm Error Reporting does not list events entirely outside the selected sync window, but does explain an overlapping event excluded by a setting or filter.
+- Complete an excluded event, sync again, and confirm it does not appear in Error Reporting.
 - Confirm private feed links are not shown in normal status messages.
 - Confirm Tasks queries can find imported events.
 - Disconnect the network, run a sync, and confirm the last good tasks remain untouched.
