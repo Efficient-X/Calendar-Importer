@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.5
+
+- Add optional witty sync banter, with Tasteful (default), Off, and Mad Max modes.
+- Add a once-per-version What's New modal with release highlights and an optional Buy Me a Coffee link.
+
 ## 1.2.4
 
 - Repair legacy calendar headings that included a calendar date and source tag, such as `## My Calendar Events 📅 2026-08-06 #Calendar`.
