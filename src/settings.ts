@@ -125,6 +125,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
     this.renderSyncSettings(advanced);
     this.renderRenderingSettings(advanced);
+    this.renderPersonalitySettings(advanced);
     this.renderSafetySettings(advanced);
     this.renderDebugSettings(advanced);
   }
@@ -885,6 +886,40 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       .addButton((button) => styleDestructiveButton(button)
         .setButtonText("Clear")
         .onClick(() => this.runSafely(() => this.plugin.clearSyncCache())));
+  }
+
+  private renderPersonalitySettings(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Personality").setHeading();
+
+    new Setting(containerEl)
+      .setName("Witty banter")
+      .setDesc("Adds a short line to successful sync notices. Tasteful shows it on manual syncs and limits automatic syncs to once per hour; Mad Max shows it after every successful sync.")
+      .addDropdown((dropdown) => dropdown
+        .addOption("off", "Off")
+        .addOption("tasteful", "Tasteful (recommended)")
+        .addOption("mad-max", "Mad Max")
+        .setValue(this.plugin.settings.wittyBanterMode)
+        .onChange(async (value) => {
+          this.plugin.settings.wittyBanterMode = value === "off" || value === "mad-max" ? value : "tasteful";
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName("Show What's New after updates")
+      .setDesc("Shows a once-per-version summary with release highlights and an optional coffee link. Fresh installs stay quiet.")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showReleaseNotes)
+        .onChange(async (value) => {
+          this.plugin.settings.showReleaseNotes = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName("Preview What's New")
+      .setDesc("Opens the current release note modal without changing your preferences.")
+      .addButton((button) => button
+        .setButtonText("Preview")
+        .onClick(() => this.plugin.showReleaseNotes()));
   }
 
   private renderDebugSettings(containerEl: HTMLElement): void {

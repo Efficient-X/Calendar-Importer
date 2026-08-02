@@ -10,7 +10,7 @@ export function normalizeSettingsData(value: unknown): CalendarTaskSyncSettings 
   const target = normalized as unknown as Record<string, unknown>;
 
   for (const key of Object.keys(DEFAULT_SETTINGS) as SettingsKey[]) {
-    if (key === "feeds" || key === "syncCache") {
+    if (key === "feeds" || key === "syncCache" || key === "banterBag") {
       continue;
     }
     const fallback = DEFAULT_SETTINGS[key];
@@ -22,6 +22,7 @@ export function normalizeSettingsData(value: unknown): CalendarTaskSyncSettings 
 
   normalized.feeds = normalizeFeedSettings(raw.feeds);
   normalized.syncCache = normalizeSyncCache(raw.syncCache);
+  normalized.banterBag = Array.isArray(raw.banterBag) ? raw.banterBag.filter((line): line is string => typeof line === "string") : [];
   normalized.syncFrequencyMinutes = clampNumber(normalized.syncFrequencyMinutes, 5, 1440, 60);
   normalized.pastDays = clampNumber(normalized.pastDays, 0, 3650, 0);
   normalized.futureDays = clampNumber(normalized.futureDays, 0, 3650, 30);
@@ -37,6 +38,9 @@ export function normalizeSettingsData(value: unknown): CalendarTaskSyncSettings 
   normalized.completedTaskMode = normalized.completedTaskMode === "preserve-in-place"
     ? "preserve-in-place"
     : "move-to-completed-section";
+  normalized.wittyBanterMode = normalized.wittyBanterMode === "off" || normalized.wittyBanterMode === "mad-max"
+    ? normalized.wittyBanterMode
+    : "tasteful";
 
   normalized.timezone = normalizeTimezone(normalized.timezone);
   normalized.calendarNotePath = requiredString(normalized.calendarNotePath, DEFAULT_SETTINGS.calendarNotePath);

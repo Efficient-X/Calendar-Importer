@@ -119,6 +119,46 @@
   font-weight: 600;
 }
 
+.calendar-importer-release-notes {
+  max-width: 560px;
+}
+
+.calendar-importer-release-headline {
+  color: var(--text-accent);
+  font-size: 1.1em;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.calendar-importer-release-notes ul {
+  line-height: 1.55;
+  padding-left: 1.4rem;
+}
+
+.calendar-importer-coffee {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.calendar-importer-coffee p {
+  line-height: 1.45;
+  margin: 0 0 0.55rem;
+}
+
+.calendar-importer-coffee a {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.calendar-importer-release-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
 .calendar-importer-colour-preview {
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;

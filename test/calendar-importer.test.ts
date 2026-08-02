@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../src/defaults";
+import { AUTOMATIC_BANTER_COOLDOWN_MS, shouldShowBanter, takeSyncBanter } from "../src/banter";
 import { eventMatchesFeedFilters, parseIcsFeed } from "../src/icsParser";
 import { renderEventTask } from "../src/eventRenderer";
 import { sortEvents } from "../src/eventSorter";
@@ -976,6 +977,54 @@ describe("rendering and sorting", () => {
 });
 
 describe("settings and cache recovery", () => {
+  it("defaults new personality settings and repairs malformed saved values", () => {
+    const normalized = normalizeSettingsData({
+      wittyBanterMode: "maximum-chaos",
+      banterBag: ["Valid line", 42],
+      showReleaseNotes: false,
+    });
+
+    expect(normalized.wittyBanterMode).toBe("tasteful");
+    expect(normalized.banterBag).toEqual(["Valid line"]);
+    expect(normalized.showReleaseNotes).toBe(false);
+    expect(normalized.lastSeenReleaseVersion).toBe("");
+  });
+
+  it("uses a shuffle bag and rate-limits automatic banter in Tasteful mode", () => {
+    const now = new Date("2026-08-02T10:00:00Z");
+    const changedResult = {
+      success: true,
+      skipped: false,
+      eventCount: 1,
+      message: "Synced.",
+      errors: [],
+      reportCount: 0,
+      changeSummary: { added: 1, updated: 0, removed: 0, unchanged: 0, completedMoved: 0, completedPreserved: 0, filtered: 0 },
+    };
+    const banterSettings = { ...DEFAULT_SETTINGS, banterBag: ["I parse, therefore iCal."] };
+
+    expect(takeSyncBanter(banterSettings, "tasteful", false, changedResult, now)).toBe("I parse, therefore iCal.");
+    expect(banterSettings.banterBag).toEqual([]);
+    expect(shouldShowBanter(banterSettings, "tasteful", false, changedResult, new Date(now.getTime() + AUTOMATIC_BANTER_COOLDOWN_MS - 1))).toBe(false);
+    expect(shouldShowBanter(banterSettings, "mad-max", false, changedResult, new Date(now.getTime() + 1))).toBe(true);
+  });
+
+  it("keeps background banter quiet when a sync has no changes or errors", () => {
+    const unchangedResult = {
+      success: true,
+      skipped: false,
+      eventCount: 1,
+      message: "Synced.",
+      errors: [],
+      reportCount: 0,
+      changeSummary: { added: 0, updated: 0, removed: 0, unchanged: 1, completedMoved: 0, completedPreserved: 0, filtered: 0 },
+    };
+    const failedResult = { ...unchangedResult, success: false, errors: ["Feed failed"] };
+
+    expect(shouldShowBanter(DEFAULT_SETTINGS, "tasteful", false, unchangedResult)).toBe(false);
+    expect(shouldShowBanter(DEFAULT_SETTINGS, "mad-max", false, failedResult)).toBe(false);
+  });
+
   it("repairs malformed settings without losing valid feeds", () => {
     const normalized = normalizeSettingsData({
       syncFrequencyMinutes: Number.NaN,

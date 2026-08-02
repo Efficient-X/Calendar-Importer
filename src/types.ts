@@ -64,6 +64,11 @@ export interface CalendarTaskSyncSettings {
   preserveManualCompletion: boolean;
   backupBeforeSync: boolean;
   errorReportingEnabled: boolean;
+  wittyBanterMode: WittyBanterMode;
+  showReleaseNotes: boolean;
+  lastBanterAt: string;
+  banterBag: string[];
+  lastSeenReleaseVersion: string;
   lastSyncTime: string;
   lastSyncResult: string;
   lastError: string;
@@ -77,6 +82,8 @@ export interface SyncCacheEntry {
   lastSeen: string;
   notePath?: string;
 }
+
+export type WittyBanterMode = "off" | "tasteful" | "mad-max";
 
 export type CompletedTaskActionScope = "recent" | "all";
 

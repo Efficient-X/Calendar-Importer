@@ -1,5 +1,7 @@
 import { Notice, Plugin, TFile, normalizePath } from "obsidian";
+import { takeSyncBanter } from "./src/banter";
 import { DEFAULT_SETTINGS, DEFAULT_TASK_TEMPLATE, LEGACY_TASK_TEMPLATES } from "./src/defaults";
+import { ReleaseNotesModal } from "./src/releaseNotesModal";
 import { CalendarTaskSyncSettingTab } from "./src/settings";
 import { CalendarTaskSyncEngine } from "./src/syncEngine";
 import { normalizeSettingsData } from "./src/settingsData";
@@ -14,6 +16,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
   private syncIntervalId: number | null = null;
   private settingsSyncTimeoutId: number | null = null;
   private saveQueue: Promise<void> = Promise.resolve();
+  private hadStoredSettings = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -24,9 +27,13 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.registerCommands();
     this.scheduleSync();
 
+    this.app.workspace.onLayoutReady(() => {
+      this.runSafely(() => this.maybeShowReleaseNotes());
+    });
+
     if (this.settings.syncOnStartup) {
       this.app.workspace.onLayoutReady(() => {
-        this.runSafely(() => this.syncNow());
+        this.runSafely(() => this.syncNow("automatic"));
       });
     }
   }
@@ -39,6 +46,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     const loaded: unknown = await this.loadData();
     const loadedSettings = isSettingsData(loaded) ? loaded : await this.loadLegacySettings();
+    this.hadStoredSettings = isSettingsData(loadedSettings) && Object.keys(loadedSettings).length > 0;
     this.settings = normalizeSettingsData(loadedSettings);
     this.settings.taskTemplate = migrateTaskTemplate(repairSymbols(this.settings.taskTemplate));
     for (const entry of Object.values(this.settings.syncCache ?? {})) {
@@ -90,7 +98,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.clearScheduledSync();
     const minutes = Math.max(5, Math.min(24 * 60, this.settings.syncFrequencyMinutes));
     this.syncIntervalId = window.setInterval(() => {
-      this.runSafely(() => this.syncNow());
+      this.runSafely(() => this.syncNow("automatic"));
     }, minutes * 60 * 1000);
     this.registerInterval(this.syncIntervalId);
   }
@@ -106,7 +114,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     }
   }
 
-  async syncNow(): Promise<SyncResult | null> {
+  async syncNow(trigger: "manual" | "automatic" = "manual"): Promise<SyncResult | null> {
     const result = await this.engine.sync();
 
     if (result.skipped) {
@@ -117,13 +125,14 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.settings.lastSyncTime = new Date().toISOString();
     this.settings.lastSyncResult = result.message;
     this.settings.lastError = result.errors.length > 0 ? result.errors.join("\n") : "";
+    const banter = takeSyncBanter(this.settings, this.settings.wittyBanterMode, trigger === "manual", result);
     await this.queueSettingsSave();
 
     if (result.success) {
       if (this.settings.errorReportingEnabled && result.reportCount > 0) {
-        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}. ${result.reportCount} item${result.reportCount === 1 ? " needs" : "s need"} attention; see Error Reporting in the calendar note.`);
+        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}. ${result.reportCount} item${result.reportCount === 1 ? " needs" : "s need"} attention; see Error Reporting in the calendar note.${banter ? ` “${banter}”` : ""}`);
       } else {
-        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}.`);
+        new Notice(`${PLUGIN_NAME}: synced ${result.eventCount} event${result.eventCount === 1 ? "" : "s"}.${banter ? ` “${banter}”` : ""}`);
       }
     } else {
       const reason = summarizeSyncError(result.errors[0]);
@@ -145,6 +154,10 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.settings.syncCache = {};
     await this.saveSettings();
     new Notice(`${PLUGIN_NAME}: sync cache cleared.`);
+  }
+
+  showReleaseNotes(): void {
+    new ReleaseNotesModal(this.app, this.manifest.version).open();
   }
 
   async clearCompletedCalendarTasks(): Promise<void> {
@@ -208,7 +221,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
       callback: () => this.runSafely(async () => {
         this.settings.syncCache = {};
         await this.saveData(this.settings);
-        await this.syncNow();
+        await this.syncNow("manual");
       }),
     });
   }
@@ -232,7 +245,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.clearSettingsSyncTimeout();
     this.settingsSyncTimeoutId = window.setTimeout(() => {
       this.settingsSyncTimeoutId = null;
-      this.runSafely(() => this.syncNow());
+      this.runSafely(() => this.syncNow("automatic"));
     }, 1000);
   }
 
@@ -241,6 +254,25 @@ export default class CalendarTaskSyncPlugin extends Plugin {
       window.clearTimeout(this.settingsSyncTimeoutId);
       this.settingsSyncTimeoutId = null;
     }
+  }
+
+  private async maybeShowReleaseNotes(): Promise<void> {
+    const version = this.manifest.version;
+    if (!this.settings.lastSeenReleaseVersion) {
+      this.settings.lastSeenReleaseVersion = version;
+      await this.queueSettingsSave();
+      if (!this.hadStoredSettings || !this.settings.showReleaseNotes) {
+        return;
+      }
+      this.showReleaseNotes();
+      return;
+    }
+    if (this.settings.lastSeenReleaseVersion === version || !this.settings.showReleaseNotes) {
+      return;
+    }
+    this.settings.lastSeenReleaseVersion = version;
+    await this.queueSettingsSave();
+    this.showReleaseNotes();
   }
 }
 
