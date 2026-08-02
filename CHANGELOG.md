@@ -5,6 +5,7 @@
 - Repair legacy calendar headings that included a calendar date and source tag, such as `## My Calendar Events 📅 2026-08-06 #Calendar`.
 - Normalize repaired headings to the configured heading during the next sync, preventing duplicate task callouts.
 - Add Obsidian 1.13+ settings-search support while retaining the existing dynamic settings interface for older app versions.
+- Update transitive development dependencies so the release security audit passes.
 
 ## 1.2.3
 
