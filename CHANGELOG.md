@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.6
+
+- Fix the Calendar Importer settings layout on Obsidian 1.13+ when Settings search is available.
+
 ## 1.2.5
 
 - Add optional witty sync banter, with Tasteful (default), Off, and Mad Max modes.
