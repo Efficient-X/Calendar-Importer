@@ -7,6 +7,13 @@ import { maskUrl } from "./security";
 
 const PLUGIN_NAME = "Calendar Importer";
 const SUPPORT_URL = "https://buymeacoffee.com/efficientx";
+const SETTINGS_SEARCH_ALIASES = [
+  "calendar feeds", "feed name", "ical url", "source label", "event title links", "wikilink", "linked note folder", "feed tags", "include keywords", "exclude keywords", "colour",
+  "sync now", "sync frequency", "sync on startup", "past days", "future days", "timezone", "all-day events", "cancelled events",
+  "calendar note path", "heading", "calendar task layout", "completed tasks", "create note",
+  "task prefix", "task template", "date format", "time format", "scheduled date", "colour swatches", "descriptions", "locations", "calendar names", "reminder tasks", "global tags", "source tag",
+  "preserve completed tasks", "completed task retention", "sync cache", "backup", "error reporting", "debug",
+];
 
 const FEED_COLOURS = [
   { name: "None", value: "" },
@@ -29,16 +36,41 @@ const FEED_COLOURS = [
 ];
 
 export class CalendarTaskSyncSettingTab extends PluginSettingTab {
+  private declarativeRoot: HTMLElement | undefined;
+
   constructor(app: App, private readonly plugin: CalendarTaskSyncPlugin) {
     super(app, plugin);
   }
 
+  // Obsidian 1.13+ indexes this definition for Settings search. The existing
+  // dynamic feed editor still renders inside it; older Obsidian versions use
+  // display() below unchanged.
+  getSettingDefinitions() {
+    return [{
+      name: `${PLUGIN_NAME} settings`,
+      desc: "Configure calendar feeds, task output, sync behaviour, and safety options.",
+      aliases: SETTINGS_SEARCH_ALIASES,
+      render: (setting: Setting) => {
+        this.declarativeRoot = setting.settingEl;
+        this.renderInto(setting.settingEl);
+      },
+    }];
+  }
+
   display(): void {
-    this.render();
+    this.declarativeRoot = undefined;
+    this.renderInto(this.containerEl);
   }
 
   private render(): void {
-    const { containerEl } = this;
+    if (this.declarativeRoot?.isConnected) {
+      this.renderInto(this.declarativeRoot);
+      return;
+    }
+    this.renderInto(this.containerEl);
+  }
+
+  private renderInto(containerEl: HTMLElement): void {
     containerEl.empty();
     containerEl.addClass("calendar-importer-settings");
 

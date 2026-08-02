@@ -1219,6 +1219,27 @@ describe("note block management", () => {
     expect(normalized).toContain("## Completed Calendar Tasks\n- [x] Done task");
   });
 
+  it("repairs legacy dated calendar headings with calendar tags", () => {
+    const calendarMarker = String.fromCodePoint(0x1f4c5);
+    const note = [
+      `## My Calendar Events ${calendarMarker} 2026-08-06 #TBCarGmail`,
+      "- [ ] Legacy task - Thursday - All day #TBCarGmail",
+      "",
+      "## My Calendar Events",
+      "- [ ] Duplicate task - Thursday - All day #TBCarGmail",
+      "",
+      "## Keep this section",
+      "Manual content",
+    ].join("\n");
+
+    const normalized = replaceManagedBlock(note, "- [ ] Imported task - Thursday - All day #TBCarGmail", settings).content;
+
+    expect((normalized.match(/^## My Calendar Events(?: .*?)?$/gim) ?? [])).toHaveLength(1);
+    expect(normalized).toContain("## My Calendar Events\n- [ ] Imported task");
+    expect(normalized).not.toContain("2026-08-06 #TBCarGmail");
+    expect(normalized).toContain("## Keep this section\nManual content");
+  });
+
   it("finds completed tasks from both active and completed sections", () => {
     const activeCompleted = "- [x] Active done 📅 2026-07-16 ✅ 2026-07-16";
     const archivedCompleted = "- [x] Archived done 📅 2026-07-17 ✅ 2026-07-17";

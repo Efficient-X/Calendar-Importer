@@ -62,7 +62,9 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
       throw new Error("Could not locate the calendar heading after removing duplicates.");
     }
     const suffix = deduplicatedContent.slice(headingRange.sectionEnd).replace(/^\r?\n/, "");
-    const prefix = deduplicatedContent.slice(0, headingRange.bodyStart);
+    const originalHeading = deduplicatedContent.slice(headingRange.headingStart, headingRange.headingEnd);
+    const originalNewline = originalHeading.endsWith("\r\n") ? "\r\n" : originalHeading.endsWith("\n") ? "\n" : "";
+    const prefix = `${deduplicatedContent.slice(0, headingRange.headingStart)}${settings.heading.trim()}${originalNewline}`;
     const separator = normalizedBlock && !prefix.endsWith("\n") ? newline : "";
     const content = `${prefix}${separator}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
     return { content, changed: content !== noteContent };
@@ -469,7 +471,8 @@ function findHeadingRange(content: string, heading: string): HeadingRange | null
 
 function findHeadingRanges(content: string, heading: string): HeadingRange[] {
   const escaped = escapeRegExp(heading.trim());
-  const expression = new RegExp(`(^|\\r?\\n)${escaped}[^\\S\\r\\n]*(?=\\r?\\n|$)`, "g");
+  const legacyCalendarSuffix = String.raw`(?:\s+(?:📅\s*)?\d{4}-\d{2}-\d{2}(?:\s+#[^\s#]+)*)?`;
+  const expression = new RegExp(`(^|\\r?\\n)${escaped}${legacyCalendarSuffix}[^\\S\\r\\n]*(?=\\r?\\n|$)`, "gi");
   const ranges: HeadingRange[] = [];
   let match: RegExpExecArray | null;
 
