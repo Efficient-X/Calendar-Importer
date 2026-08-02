@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.7
+
+- Restore the proven settings renderer from 1.2.3, fixing the broken Calendar Importer settings page on Obsidian 1.13+.
+- Keep the 1.2.5 witty-banter and release-note settings intact.
+
 ## 1.2.6
 
 - Fix the Calendar Importer settings layout on Obsidian 1.13+ when Settings search is available.
