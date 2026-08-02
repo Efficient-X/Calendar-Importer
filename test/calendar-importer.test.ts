@@ -6,6 +6,7 @@ import { renderEventTask } from "../src/eventRenderer";
 import { sortEvents } from "../src/eventSorter";
 import { normalizeFeedUrl, redactSensitiveUrls } from "../src/security";
 import { normalizeSettingsData } from "../src/settingsData";
+import { getReleaseNote } from "../src/releaseNotes";
 import { prepareScopedSyncCache } from "../src/syncCache";
 import {
   buildManagedBlock,
@@ -43,6 +44,16 @@ const window = {
 };
 const calendarMarker = String.fromCodePoint(0x1f4c5);
 const scheduledMarker = String.fromCodePoint(0x23f3);
+
+describe("release notes", () => {
+  it("describes maintenance releases as fixes", () => {
+    const note = getReleaseNote("1.2.8");
+
+    expect(note.kind).toBe("fixes");
+    expect(note.headline).toContain("Damn 1s and 0s");
+    expect(note.highlights).toContain("Bug-fix releases now use a dedicated “What we fixed” section instead of pretending every patch is a shiny new feature.");
+  });
+});
 
 describe("ICS parsing", () => {
   it("keeps all-day dates stable west of UTC", () => {
