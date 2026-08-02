@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, type ButtonComponent } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, SettingPage, type ButtonComponent } from "obsidian";
 import type CalendarTaskSyncPlugin from "../main";
 import { DEFAULT_TASK_TEMPLATE, DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
 import { buildTaskPreview } from "./eventRenderer";
@@ -7,14 +7,6 @@ import { maskUrl } from "./security";
 
 const PLUGIN_NAME = "Calendar Importer";
 const SUPPORT_URL = "https://buymeacoffee.com/efficientx";
-const SETTINGS_SEARCH_ALIASES = [
-  "calendar feeds", "feed name", "ical url", "source label", "event title links", "wikilink", "linked note folder", "feed tags", "include keywords", "exclude keywords", "colour",
-  "sync now", "sync frequency", "sync on startup", "past days", "future days", "timezone", "all-day events", "cancelled events",
-  "calendar note path", "heading", "calendar task layout", "completed tasks", "create note",
-  "task prefix", "task template", "date format", "time format", "scheduled date", "colour swatches", "descriptions", "locations", "calendar names", "reminder tasks", "global tags", "source tag",
-  "preserve completed tasks", "completed task retention", "sync cache", "backup", "error reporting", "debug",
-];
-
 const FEED_COLOURS = [
   { name: "None", value: "" },
   { name: "Slate", value: "#64748b" },
@@ -42,17 +34,28 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
-  // Obsidian 1.13+ indexes this definition for Settings search. The existing
-  // dynamic feed editor still renders inside it; older Obsidian versions use
-  // display() below unchanged.
+  // Obsidian 1.13+ indexes the page name for Settings search. The feed editor
+  // is dynamic, so it must render in a SettingPage rather than a single
+  // declarative row (which Obsidian lays out as a horizontal flex item).
   getSettingDefinitions() {
     return [{
+      type: "page" as const,
       name: `${PLUGIN_NAME} settings`,
       desc: "Configure calendar feeds, task output, sync behaviour, and safety options.",
-      aliases: SETTINGS_SEARCH_ALIASES,
-      render: (setting: Setting) => {
-        this.declarativeRoot = setting.settingEl;
-        this.renderInto(setting.settingEl);
+      page: () => {
+        // This factory is only invoked by Obsidian 1.13+. Keeping the class
+        // inside it preserves the display() fallback on earlier releases.
+        const Page = class extends SettingPage {
+          constructor(private readonly tab: CalendarTaskSyncSettingTab) {
+            super();
+          }
+
+          display(): void {
+            const containerEl = (this as unknown as { containerEl: HTMLElement }).containerEl;
+            this.tab.renderDeclarativePage(containerEl);
+          }
+        };
+        return new Page(this);
       },
     }];
   }
@@ -68,6 +71,11 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       return;
     }
     this.renderInto(this.containerEl);
+  }
+
+  renderDeclarativePage(containerEl: HTMLElement): void {
+    this.declarativeRoot = containerEl;
+    this.renderInto(containerEl);
   }
 
   private renderInto(containerEl: HTMLElement): void {
@@ -991,6 +999,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     });
   }
 }
+
 
 function createFeed(): CalendarFeedSetting {
   const id = `feed-${Date.now().toString(36)}`;
