@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.8
+
+- Make maintenance-release popups explain the repaired behaviour, with a dedicated “What we fixed” section and suitably nerdy banter.
+
 ## 1.2.7
 
 - Restore the proven settings renderer from 1.2.3, fixing the broken Calendar Importer settings page on Obsidian 1.13+.

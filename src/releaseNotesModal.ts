@@ -16,7 +16,7 @@ export class ReleaseNotesModal extends Modal {
 
     contentEl.createEl("h2", { text: `Calendar Importer ${this.version}` });
     contentEl.createEl("p", { cls: "calendar-importer-release-headline", text: `“${note.headline}”` });
-    contentEl.createEl("h3", { text: "What's new" });
+    contentEl.createEl("h3", { text: note.kind === "fixes" ? "What we fixed" : "What's new" });
     const highlights = contentEl.createEl("ul");
     for (const highlight of note.highlights) {
       highlights.createEl("li", { text: highlight });
