@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, SettingPage, type ButtonComponent } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, type ButtonComponent } from "obsidian";
 import type CalendarTaskSyncPlugin from "../main";
 import { DEFAULT_TASK_TEMPLATE, DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
 import { buildTaskPreview } from "./eventRenderer";
@@ -28,57 +28,16 @@ const FEED_COLOURS = [
 ];
 
 export class CalendarTaskSyncSettingTab extends PluginSettingTab {
-  private declarativeRoot: HTMLElement | undefined;
-
   constructor(app: App, private readonly plugin: CalendarTaskSyncPlugin) {
     super(app, plugin);
   }
 
-  // Obsidian 1.13+ indexes the page name for Settings search. The feed editor
-  // is dynamic, so it must render in a SettingPage rather than a single
-  // declarative row (which Obsidian lays out as a horizontal flex item).
-  getSettingDefinitions() {
-    return [{
-      type: "page" as const,
-      name: `${PLUGIN_NAME} settings`,
-      desc: "Configure calendar feeds, task output, sync behaviour, and safety options.",
-      page: () => {
-        // This factory is only invoked by Obsidian 1.13+. Keeping the class
-        // inside it preserves the display() fallback on earlier releases.
-        const Page = class extends SettingPage {
-          constructor(private readonly tab: CalendarTaskSyncSettingTab) {
-            super();
-          }
-
-          display(): void {
-            const containerEl = (this as unknown as { containerEl: HTMLElement }).containerEl;
-            this.tab.renderDeclarativePage(containerEl);
-          }
-        };
-        return new Page(this);
-      },
-    }];
-  }
-
   display(): void {
-    this.declarativeRoot = undefined;
-    this.renderInto(this.containerEl);
+    this.render();
   }
 
   private render(): void {
-    if (this.declarativeRoot?.isConnected) {
-      this.renderInto(this.declarativeRoot);
-      return;
-    }
-    this.renderInto(this.containerEl);
-  }
-
-  renderDeclarativePage(containerEl: HTMLElement): void {
-    this.declarativeRoot = containerEl;
-    this.renderInto(containerEl);
-  }
-
-  private renderInto(containerEl: HTMLElement): void {
+    const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("calendar-importer-settings");
 
