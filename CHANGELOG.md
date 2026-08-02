@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.4
+
+- Repair legacy calendar headings that included a calendar date and source tag, such as `## My Calendar Events 📅 2026-08-06 #Calendar`.
+- Normalize repaired headings to the configured heading during the next sync, preventing duplicate task callouts.
+
 ## 1.2.3
 
 - Keep Error Reporting focused on events that actually overlap the selected sync window; old and future out-of-range events are no longer listed.

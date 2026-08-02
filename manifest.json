@@ -1,7 +1,7 @@
 {
   "id": "calendar-importer",
   "name": "Calendar Importer",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "minAppVersion": "1.7.2",
   "description": "Bring external calendar events into your task notes without retyping them.",
   "author": "Efficient X Group",
