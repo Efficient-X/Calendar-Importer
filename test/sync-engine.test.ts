@@ -61,6 +61,70 @@ describe("sync write safety", () => {
     expect(process).not.toHaveBeenCalled();
   });
 
+  it("keeps a secondary device read-only, including completion actions", async () => {
+    const process = vi.fn();
+    const app = { vault: { process } } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+    };
+    const engine = new CalendarTaskSyncEngine(app, () => settings, () => false);
+
+    const result = await engine.sync();
+    expect(result.skipped).toBe(true);
+    expect(result.message).toContain("read-only on this device");
+    expect(mocks.requestUrl).not.toHaveBeenCalled();
+    expect(process).not.toHaveBeenCalled();
+    await expect(engine.clearCompletedCalendarTasks()).rejects.toThrow("read-only");
+    await expect(engine.reopenCompletedCalendarTasks("all")).rejects.toThrow("read-only");
+  });
+
+  it("repairs a merged desktop/iPad note without reviving completed events", async () => {
+    const checked = "- [x] Safe update - Thursday - 09:00-10:00 📅 2026-07-16 ✅ 2026-07-16";
+    const unchecked = "- [ ] Safe update - Thursday - 09:00-10:00 📅 2026-07-16";
+    let content = [
+      "## My Calendar Events", unchecked, "",
+      "## Completed Calendar Tasks", checked, "",
+      "## My Calendar Events", unchecked, "",
+      "## Completed Calendar Tasks", checked,
+    ].join("\n");
+    const file = new TFile();
+    Object.assign(file, { path: "Calendar/My Calendar Events.md" });
+    const create = vi.fn(async () => new TFile());
+    const app = {
+      workspace: { getLeavesOfType: vi.fn(() => []) },
+      vault: {
+        getAbstractFileByPath: vi.fn((path: string) => path === file.path ? file : null),
+        read: vi.fn(async () => content),
+        create,
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS,
+      syncCache: {},
+      timezone: "UTC",
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+    };
+    mocks.requestUrl.mockResolvedValue({
+      status: 200,
+      text: ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "UID:sync-test", "SUMMARY:Safe update", "DTSTART:20260716T090000Z", "DTEND:20260716T100000Z", "END:VEVENT", "END:VCALENDAR"].join("\r\n"),
+    });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(true);
+    expect((content.match(/Safe update/g) ?? [])).toHaveLength(1);
+    expect(content).toContain(checked);
+    expect(content).not.toContain(unchecked);
+    expect((content.match(/## My Calendar Events/g) ?? [])).toHaveLength(1);
+    expect((content.match(/## Completed Calendar Tasks/g) ?? [])).toHaveLength(1);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
   it("records a failed feed in Error Reporting without replacing calendar tasks", async () => {
     let content = "## My Calendar Events\n- [ ] Keep this task\n";
     const file = new TFile();

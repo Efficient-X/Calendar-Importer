@@ -10,6 +10,7 @@ import {
   extractCompletedSectionTaskLines,
   extractCompletedTaskLines,
   getTaskIdentity,
+  hasDuplicateManagedSections,
   moveCompletedTasksToCompletedSection,
   reopenCompletedTasksInNote,
   removeCompletedTaskSection,
@@ -58,9 +59,20 @@ export class CalendarTaskSyncEngine {
   constructor(
     private readonly app: App,
     private readonly getSettings: SettingsGetter,
+    private readonly canWrite: () => boolean = () => true,
   ) {}
 
   async sync(): Promise<SyncResult> {
+    if (!this.canWrite()) {
+      return {
+        success: false,
+        skipped: true,
+        eventCount: 0,
+        message: "Calendar Importer is read-only on this device; no notes were changed.",
+        errors: [],
+        reportCount: 0,
+      };
+    }
     if (this.isRunning) {
       return {
         success: true,
@@ -87,11 +99,19 @@ export class CalendarTaskSyncEngine {
   }
 
   async clearCompletedCalendarTasks(): Promise<CompletedTaskActionSummary> {
+    this.requireWriter();
     return this.processCompletedCalendarTasks((content, settings) => clearCompletedTasksFromNote(content, settings));
   }
 
   async reopenCompletedCalendarTasks(scope: CompletedTaskActionScope): Promise<CompletedTaskActionSummary> {
+    this.requireWriter();
     return this.processCompletedCalendarTasks((content, settings) => reopenCompletedTasksInNote(content, settings, scope));
+  }
+
+  private requireWriter(): void {
+    if (!this.canWrite()) {
+      throw new Error("Calendar Importer is read-only on this device. Change the local writer setting to edit imported tasks.");
+    }
   }
 
   private async runSync(): Promise<SyncResult> {
@@ -134,6 +154,17 @@ export class CalendarTaskSyncEngine {
       events.push(...feedResult.events);
       reports.push(...feedResult.reports);
       filtered += feedResult.filtered;
+    }
+
+    if (!this.canWrite()) {
+      return {
+        success: false,
+        skipped: true,
+        eventCount: 0,
+        message: "Calendar Importer became read-only on this device; no notes were changed.",
+        errors: [],
+        reportCount: 0,
+      };
     }
 
     if (errors.length > 0) {
@@ -270,7 +301,7 @@ export class CalendarTaskSyncEngine {
     reports: SyncIssue[],
     errors: string[],
   ): Promise<string | undefined> {
-    if (!settings.errorReportingEnabled) {
+    if (!settings.errorReportingEnabled || !this.canWrite()) {
       return undefined;
     }
 
@@ -383,6 +414,7 @@ export class CalendarTaskSyncEngine {
     reports: SyncIssue[],
   ): Promise<SyncChangeSummary> {
     try {
+      this.requireWriter();
       await this.saveOpenMarkdownViews(path);
       const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0 || (settings.errorReportingEnabled && reports.length > 0));
       if (!file) {
@@ -390,16 +422,17 @@ export class CalendarTaskSyncEngine {
         return emptySummary(filtered);
       }
 
-      if (settings.backupBeforeSync) {
+      if (settings.backupBeforeSync || typeof this.app.vault.read === "function") {
         const existing = await this.app.vault.read(file);
         const update = this.prepareNoteUpdate(path, events, settings, existing, filtered, reports);
-        if (update.content !== existing) {
+        if (update.content !== existing && (settings.backupBeforeSync || hasDuplicateManagedSections(existing, settings))) {
           await this.createBackup(file, existing);
         }
       }
 
       const outcome: { plan?: BuildNotePlan } = {};
       await this.app.vault.process(file, (existing) => {
+        this.requireWriter();
         const update = this.prepareNoteUpdate(path, events, settings, existing, filtered, reports);
         outcome.plan = update.plan;
         return update.content;

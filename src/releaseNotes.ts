@@ -6,6 +6,15 @@ export interface ReleaseNote {
 }
 
 const RELEASE_NOTES: Record<string, ReleaseNote> = {
+  "1.3.0": {
+    headline: "Two devices, one calendar writer. The timeline thanks you.",
+    highlights: [
+      "Choose one device to write calendar notes in a shared vault; other devices can still view and tick the synced tasks.",
+      "Repair repeated calendar sections after a sync conflict, keeping checked events and backing up the note first.",
+      "Find Calendar Importer in Obsidian's settings search, plus twenty fresh sync one-liners.",
+    ],
+    coffeeLine: "If this helped untangle a temporal knot, the sync goblins accept coffee.",
+  },
   "1.2.5": {
     headline: "The calendar-to-Markdown supply chain remains operational.",
     highlights: [

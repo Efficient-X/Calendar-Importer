@@ -47,14 +47,17 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
   const normalizedBlock = blockContent.replace(/\r?\n/g, newline);
   const startIndex = noteContent.indexOf(settings.startMarker);
   const endIndex = noteContent.indexOf(settings.endMarker);
+  const headingRanges = findHeadingRanges(noteContent, settings.heading);
+  const hasConflictingManagedSections = headingRanges.length > 1
+    || countOccurrences(noteContent, settings.startMarker) > 1
+    || countOccurrences(noteContent, settings.endMarker) > 1;
 
-  if (startIndex >= 0 && endIndex > startIndex) {
+  if (!hasConflictingManagedSections && startIndex >= 0 && endIndex > startIndex) {
     const endMarkerEnd = endIndex + settings.endMarker.length;
     const content = `${noteContent.slice(0, startIndex)}${normalizedBlock}${noteContent.slice(endMarkerEnd)}`;
     return { content, changed: content !== noteContent };
   }
 
-  const headingRanges = findHeadingRanges(noteContent, settings.heading);
   if (headingRanges.length > 0) {
     const deduplicatedContent = removeHeadingRanges(noteContent, headingRanges.slice(1));
     const headingRange = findHeadingRange(deduplicatedContent, settings.heading);
@@ -70,7 +73,7 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
     return { content, changed: content !== noteContent };
   }
 
-  const trimmed = noteContent.trimEnd();
+  const trimmed = (hasConflictingManagedSections ? removeMarkerBlocks(noteContent, settings) : noteContent).trimEnd();
   const heading = settings.heading.trim();
   const content = `${trimmed}${trimmed ? `${newline}${newline}` : ""}${heading}${newline}${normalizedBlock}${normalizedBlock ? newline : ""}`;
   return { content, changed: content !== noteContent };
@@ -79,10 +82,51 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
 export function extractManagedBlock(noteContent: string, settings: CalendarTaskSyncSettings): string {
   const startIndex = noteContent.indexOf(settings.startMarker);
   const endIndex = noteContent.indexOf(settings.endMarker);
+  const headingRanges = findHeadingRanges(noteContent, settings.heading);
+  if (headingRanges.length > 1 || countOccurrences(noteContent, settings.startMarker) > 1) {
+    return headingRanges.length > 0
+      ? headingRanges.map((range) => noteContent.slice(range.bodyStart, range.sectionEnd)).join("\n")
+      : extractMarkerBlocks(noteContent, settings).join("\n");
+  }
   if (startIndex < 0 || endIndex <= startIndex) {
-    return extractSectionBodies(noteContent, settings.heading).join("\n");
+    return headingRanges.map((range) => noteContent.slice(range.bodyStart, range.sectionEnd)).join("\n");
   }
   return noteContent.slice(startIndex, endIndex + settings.endMarker.length);
+}
+
+export function hasDuplicateManagedSections(noteContent: string, settings: CalendarTaskSyncSettings): boolean {
+  return findHeadingRanges(noteContent, settings.heading).length > 1
+    || countOccurrences(noteContent, settings.startMarker) > 1
+    || countOccurrences(noteContent, settings.endMarker) > 1;
+}
+
+function countOccurrences(content: string, token: string): number {
+  return token ? content.split(token).length - 1 : 0;
+}
+
+function extractMarkerBlocks(content: string, settings: CalendarTaskSyncSettings): string[] {
+  const blocks: string[] = [];
+  let cursor = 0;
+  while (cursor < content.length) {
+    const start = content.indexOf(settings.startMarker, cursor);
+    if (start < 0) break;
+    const end = content.indexOf(settings.endMarker, start + settings.startMarker.length);
+    if (end < 0) break;
+    blocks.push(content.slice(start, end + settings.endMarker.length));
+    cursor = end + settings.endMarker.length;
+  }
+  return blocks;
+}
+
+function removeMarkerBlocks(content: string, settings: CalendarTaskSyncSettings): string {
+  let result = content;
+  while (true) {
+    const start = result.indexOf(settings.startMarker);
+    if (start < 0) return result;
+    const end = result.indexOf(settings.endMarker, start + settings.startMarker.length);
+    if (end < 0) return result;
+    result = result.slice(0, start) + result.slice(end + settings.endMarker.length);
+  }
 }
 
 export function extractCompletionStates(noteContent: string, settings: CalendarTaskSyncSettings): Record<string, boolean> {
@@ -115,7 +159,7 @@ export function moveCompletedTasksToCompletedSection(noteContent: string, settin
   let movedCount = 0;
 
   for (const line of activeLines) {
-    if (!line.trim()) {
+    if (!line.trim() || line.trim() === settings.startMarker || line.trim() === settings.endMarker) {
       continue;
     }
 

@@ -121,6 +121,14 @@ If you are not sure, leave the defaults alone. They are designed to be tidy out 
 
 ### Safety
 
+#### Shared vaults on more than one device
+
+If your computer and iPad sync the same vault, leave **Write calendar notes on this device** on for one device and turn it off on the other. This switch is stored locally on each device, not in synced plugin settings. The read-only device can still display the calendar note and tick its tasks; Calendar Importer simply stops importing, clearing, or reopening tasks there. Let the vault finish syncing those ticks before the writer runs another import.
+
+Both devices default to writer mode after updating, so choose the secondary device and turn its switch off. The writer's next successful sync can repair repeated managed calendar sections. It makes a `.bak` copy of a note before that repair even if routine backups are disabled. Keep the backup until you have checked the repaired note.
+
+This is a single-writer workflow, not a distributed lock. If both devices keep importing into the same note, or a remote edit has not arrived before the writer syncs, the vault's own file-sync system can still produce a conflict.
+
 Calendar Importer can preserve completed imported tasks and move them into:
 
 ```markdown

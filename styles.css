@@ -2,6 +2,25 @@
   max-width: 820px;
 }
 
+/* Obsidian 1.13 renders declarative items as rows. This one hosts the
+   existing dynamic editor, so it must not inherit a two-column row layout. */
+.calendar-importer-declarative-host {
+  display: block !important;
+  width: 100%;
+  max-width: 820px;
+  min-width: 0;
+}
+
+.calendar-importer-declarative-host > .setting-item-info,
+.calendar-importer-declarative-host > .setting-item-control {
+  display: none;
+}
+
+.calendar-importer-declarative-host > div:last-child {
+  width: 100%;
+  min-width: 0;
+}
+
 .calendar-importer-settings h2 {
   margin-top: 1.25rem;
   margin-bottom: 0.75rem;

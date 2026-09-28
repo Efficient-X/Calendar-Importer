@@ -1279,6 +1279,49 @@ describe("note block management", () => {
     expect(normalized).toContain("## Completed Calendar Tasks\n- [x] Done task");
   });
 
+  it("repairs a cross-device merge and keeps the checked event over unchecked copies", () => {
+    const checked = "- [x] Shared event - Sunday - All day 📅 2026-09-27 ✅ 2026-09-27";
+    const unchecked = "- [ ] Shared event - Sunday - All day 📅 2026-09-27";
+    const note = [
+      "## My Calendar Events",
+      unchecked,
+      "",
+      "## Completed Calendar Tasks",
+      checked,
+      "",
+      "## My Calendar Events",
+      unchecked,
+      "",
+      "## Completed Calendar Tasks",
+      checked,
+    ].join("\n");
+
+    const normalized = moveCompletedTasksToCompletedSection(note, settings).content;
+    expect(extractCompletedSectionTaskLines(normalized, settings)).toEqual([checked]);
+    const active = replaceManagedBlock(normalized, "", settings).content;
+    const repaired = replaceCompletedTaskSection(active, [checked, checked], settings).content;
+    expect((repaired.match(/Shared event/g) ?? [])).toHaveLength(1);
+    expect(repaired).toContain(checked);
+    expect(repaired).not.toContain(unchecked);
+  });
+
+  it("reads checked tasks from merged marker blocks and removes the extra blocks", () => {
+    const checked = "- [x] Shared event 📅 2026-09-27 ✅ 2026-09-27";
+    const note = [
+      "# Personal notes", "Keep this introduction.",
+      settings.startMarker, checked, settings.endMarker,
+      "Keep this comment.",
+      settings.startMarker, "- [ ] Shared event 📅 2026-09-27", settings.endMarker,
+    ].join("\n");
+
+    expect(extractCompletedTaskLines(note, settings)[getTaskIdentity(checked)]).toBe(checked);
+    const repaired = replaceManagedBlock(note, "- [ ] Fresh event 📅 2026-09-28", settings).content;
+    expect(repaired).toContain("Keep this introduction.");
+    expect(repaired).toContain("Keep this comment.");
+    expect(repaired).toContain("## My Calendar Events\n- [ ] Fresh event");
+    expect(repaired).not.toContain("Shared event");
+  });
+
   it("repairs legacy dated calendar headings with calendar tags", () => {
     const calendarMarker = String.fromCodePoint(0x1f4c5);
     const note = [

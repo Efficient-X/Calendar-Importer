@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, type ButtonComponent } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, type ButtonComponent, type SettingDefinitionItem } from "obsidian";
 import type CalendarTaskSyncPlugin from "../main";
 import { DEFAULT_TASK_TEMPLATE, DEFAULT_WIKILINK_BASE_FOLDER, DEFAULT_WIKILINK_PREFIX_FORMAT } from "./defaults";
 import { buildTaskPreview } from "./eventRenderer";
@@ -28,8 +28,29 @@ const FEED_COLOURS = [
 ];
 
 export class CalendarTaskSyncSettingTab extends PluginSettingTab {
+  private declarativeRoot: HTMLElement | undefined;
+
   constructor(app: App, private readonly plugin: CalendarTaskSyncPlugin) {
     super(app, plugin);
+  }
+
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [{
+      name: `${PLUGIN_NAME} settings`,
+      desc: "Calendar feeds, device writer, task output, sync, completion, and safety settings.",
+      aliases: ["calendar feed", "sync frequency", "write calendar notes on this device", "completed tasks", "task layout", "witty banter", "release notes"],
+      render: (setting) => {
+        // Keep the proven dynamic editor as a full-width surface. A Setting row's
+        // normal two-column layout is too narrow for nested feed controls.
+        setting.settingEl.addClass("calendar-importer-declarative-host");
+        const root = setting.settingEl.createDiv();
+        this.declarativeRoot = root;
+        this.renderInto(root);
+        return () => {
+          if (this.declarativeRoot === root) this.declarativeRoot = undefined;
+        };
+      },
+    }];
   }
 
   display(): void {
@@ -37,7 +58,11 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
   }
 
   private render(): void {
-    const { containerEl } = this;
+    const containerEl = this.declarativeRoot?.isConnected ? this.declarativeRoot : this.containerEl;
+    this.renderInto(containerEl);
+  }
+
+  private renderInto(containerEl: HTMLElement): void {
     containerEl.empty();
     containerEl.addClass("calendar-importer-settings");
 
@@ -51,6 +76,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
     supportLink.setAttr("target", "_blank");
     supportLink.setAttr("rel", "noopener");
     this.renderStatus(containerEl);
+    this.renderDeviceWriter(containerEl);
     this.renderOnboardingChecklist(containerEl);
 
     this.renderQuickActions(containerEl);
@@ -111,6 +137,17 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
       cls: "calendar-importer-status-meta",
       text: this.plugin.settings.lastSyncTime || "No sync has run yet.",
     });
+  }
+
+  private renderDeviceWriter(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName("Write calendar notes on this device")
+      .setDesc("For a shared vault, leave this on for one device and turn it off on the others. All devices can still view and tick tasks. This choice stays on this device.")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.writesCalendarNotesOnThisDevice())
+        .onChange((value) => {
+          this.plugin.setWritesCalendarNotesOnThisDevice(value);
+        }));
   }
 
   private renderQuickActions(containerEl: HTMLElement): void {

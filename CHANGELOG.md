@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Add a device-local writer switch for shared vaults: leave calendar imports on one device and turn them off on the others, while all devices can still view and tick synced tasks.
+- Repair repeated managed calendar sections from merged notes, keeping checked events and removing their unchecked copies on the next successful writer sync. Back up notes automatically before repairing repeated sections.
+- Expose Calendar Importer in Obsidian 1.13+ settings search without putting the dynamic feed editor into a cramped settings row.
+- Add twenty new sync one-liners and retire a premature claim about duplicates.
+- Require Obsidian 1.8.7 or later for device-local storage. Earlier plugin releases remain available through `versions.json`.
+
 ## 1.2.8
 
 - Make maintenance-release popups explain the repaired behaviour, with a dedicated “What we fixed” section and suitably nerdy banter.

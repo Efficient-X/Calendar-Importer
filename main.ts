@@ -9,6 +9,7 @@ import type { CalendarTaskSyncSettings, SyncResult } from "./src/types";
 
 const PLUGIN_NAME = "Calendar Importer";
 const LEGACY_PLUGIN_IDS = ["ical-events-to-tasks", "calendar-task-sync"];
+const DEVICE_WRITER_KEY = "calendar-importer-write-notes-on-this-device";
 
 export default class CalendarTaskSyncPlugin extends Plugin {
   settings: CalendarTaskSyncSettings = DEFAULT_SETTINGS;
@@ -20,7 +21,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
-    this.engine = new CalendarTaskSyncEngine(this.app, () => this.settings);
+    this.engine = new CalendarTaskSyncEngine(this.app, () => this.settings, () => this.writesCalendarNotesOnThisDevice());
 
     this.addSettingTab(new CalendarTaskSyncSettingTab(this.app, this));
     this.addRibbonIcon("calendar-check", `${PLUGIN_NAME}: Sync now`, () => this.runSafely(() => this.syncNow()));
@@ -96,6 +97,9 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
   scheduleSync(): void {
     this.clearScheduledSync();
+    if (!this.writesCalendarNotesOnThisDevice()) {
+      return;
+    }
     const minutes = Math.max(5, Math.min(24 * 60, this.settings.syncFrequencyMinutes));
     this.syncIntervalId = window.setInterval(() => {
       this.runSafely(() => this.syncNow("automatic"));
@@ -118,7 +122,9 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     const result = await this.engine.sync();
 
     if (result.skipped) {
-      new Notice(`${PLUGIN_NAME}: sync already running, skipped.`);
+      if (trigger === "manual") {
+        new Notice(`${PLUGIN_NAME}: ${result.message}`);
+      }
       return result;
     }
 
@@ -148,6 +154,17 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     if (file instanceof TFile) {
       await this.app.workspace.getLeaf(false).openFile(file);
     }
+  }
+
+  writesCalendarNotesOnThisDevice(): boolean {
+    // Vault-local storage stays on this device, unlike the plugin's synced data.json.
+    return this.app.loadLocalStorage?.(DEVICE_WRITER_KEY) !== false;
+  }
+
+  setWritesCalendarNotesOnThisDevice(enabled: boolean): void {
+    this.app.saveLocalStorage?.(DEVICE_WRITER_KEY, enabled);
+    if (!enabled) this.clearSettingsSyncTimeout();
+    this.rescheduleSync();
   }
 
   async clearSyncCache(): Promise<void> {
@@ -243,6 +260,9 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
   private scheduleSettingsSync(): void {
     this.clearSettingsSyncTimeout();
+    if (!this.writesCalendarNotesOnThisDevice()) {
+      return;
+    }
     this.settingsSyncTimeoutId = window.setTimeout(() => {
       this.settingsSyncTimeoutId = null;
       this.runSafely(() => this.syncNow("automatic"));

@@ -15,6 +15,8 @@ Here is the quick test lap:
 - Confirm Tasks queries can find imported events.
 - Disconnect the network, run a sync, and confirm the last good tasks remain untouched.
 - On iPhone, iPad, or Android, install or update through Community Plugins and run one sync while Obsidian is active.
+- With two devices sharing a vault, turn off **Write calendar notes on this device** on the secondary device. Confirm its manual sync does not fetch feeds or edit notes, but it can still tick a synced task. After the vault syncs, run the writer and confirm the task stays checked.
+- Test a note with repeated calendar sections and checked/unchecked copies of one event. Confirm the next writer sync creates a `.bak` file and leaves one checked copy.
 
 If something feels off, please include:
 

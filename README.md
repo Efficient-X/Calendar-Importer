@@ -117,6 +117,7 @@ Want more ready-to-paste snippets? See [daily note recipes](https://github.com/E
 - Imports one or more calendar feeds into Obsidian.
 - Writes events as markdown tasks.
 - Keeps completed imported tasks completed.
+- Supports a single-writer setup for vaults shared between desktop and mobile: turn off calendar-note writing on secondary devices while still viewing and ticking the synced tasks.
 - Moves completed calendar tasks into a completed section if you want.
 - Can reopen accidental completions from the last 24 hours, or reopen the whole completed pile when you need a proper do-over.
 - Can clear completed task history and self-clean old sync cache entries.
