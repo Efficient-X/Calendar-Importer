@@ -121,6 +121,7 @@ describe("sync write safety", () => {
     const file = Object.assign(new TFile(), { path: DEFAULT_SETTINGS.calendarNotePath });
     const backups: string[] = [];
     let backupUnavailable = true;
+    const process = vi.fn(async (_file: TFile, update: (value: string) => string) => { content = update(content); return content; });
     const app = { vault: {
       getAbstractFileByPath: (path: string) => path === file.path ? file : null,
       read: vi.fn(async () => content),
@@ -129,7 +130,7 @@ describe("sync write safety", () => {
         backups.push(value);
         return new TFile();
       }),
-      process: vi.fn(async (_file: TFile, update: (value: string) => string) => { content = update(content); return content; }),
+      process,
     } } as unknown as App;
     const settings: CalendarTaskSyncSettings = { ...DEFAULT_SETTINGS, syncCache: {}, timezone: "UTC", includeColorSwatch: false,
       feeds: [{ id: "synthetic", name: "Synthetic", url: "https://calendar.example/test.ics", enabled: true }] };
@@ -141,7 +142,7 @@ describe("sync write safety", () => {
     expect((await engine.sync()).success).toBe(false);
     expect(content).toBe(original);
     expect(settings.syncCache).toEqual({});
-    expect(app.vault.process).not.toHaveBeenCalled();
+    expect(process).not.toHaveBeenCalled();
     backupUnavailable = false;
     expect((await engine.sync()).success).toBe(true);
     expect(backups).toEqual([original]);
