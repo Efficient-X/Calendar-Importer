@@ -32,6 +32,7 @@ interface HeadingRange {
   headingEnd: number;
   bodyStart: number;
   sectionEnd: number;
+  inlineTask?: string;
 }
 
 export function buildManagedBlock(items: ManagedTaskLine[], settings: CalendarTaskSyncSettings): string {
@@ -49,6 +50,7 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
   const endIndex = noteContent.indexOf(settings.endMarker);
   const headingRanges = findHeadingRanges(noteContent, settings.heading);
   const hasConflictingManagedSections = headingRanges.length > 1
+    || headingRanges.some((range) => range.inlineTask)
     || countOccurrences(noteContent, settings.startMarker) > 1
     || countOccurrences(noteContent, settings.endMarker) > 1;
 
@@ -69,7 +71,7 @@ export function replaceManagedBlock(noteContent: string, blockContent: string, s
     const originalNewline = originalHeading.endsWith("\r\n") ? "\r\n" : originalHeading.endsWith("\n") ? "\n" : "";
     const prefix = `${deduplicatedContent.slice(0, headingRange.headingStart)}${settings.heading.trim()}${originalNewline}`;
     const separator = normalizedBlock && !prefix.endsWith("\n") ? newline : "";
-    const content = `${prefix}${separator}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix}`;
+    const content = `${prefix}${separator}${normalizedBlock}${normalizedBlock ? newline : ""}${suffix ? newline : ""}${suffix}`;
     return { content, changed: content !== noteContent };
   }
 
@@ -83,9 +85,9 @@ export function extractManagedBlock(noteContent: string, settings: CalendarTaskS
   const startIndex = noteContent.indexOf(settings.startMarker);
   const endIndex = noteContent.indexOf(settings.endMarker);
   const headingRanges = findHeadingRanges(noteContent, settings.heading);
-  if (headingRanges.length > 1 || countOccurrences(noteContent, settings.startMarker) > 1) {
+  if (headingRanges.length > 1 || headingRanges.some((range) => range.inlineTask) || countOccurrences(noteContent, settings.startMarker) > 1) {
     return headingRanges.length > 0
-      ? headingRanges.map((range) => noteContent.slice(range.bodyStart, range.sectionEnd)).join("\n")
+      ? headingRanges.map((range) => `${range.inlineTask ?? ""}\n${noteContent.slice(range.bodyStart, range.sectionEnd)}`).join("\n")
       : extractMarkerBlocks(noteContent, settings).join("\n");
   }
   if (startIndex < 0 || endIndex <= startIndex) {
@@ -95,7 +97,8 @@ export function extractManagedBlock(noteContent: string, settings: CalendarTaskS
 }
 
 export function hasDuplicateManagedSections(noteContent: string, settings: CalendarTaskSyncSettings): boolean {
-  return findHeadingRanges(noteContent, settings.heading).length > 1
+  const ranges = findHeadingRanges(noteContent, settings.heading);
+  return ranges.length > 1 || ranges.some((range) => Boolean(range.inlineTask))
     || countOccurrences(noteContent, settings.startMarker) > 1
     || countOccurrences(noteContent, settings.endMarker) > 1;
 }
@@ -515,21 +518,42 @@ function findHeadingRange(content: string, heading: string): HeadingRange | null
 
 function findHeadingRanges(content: string, heading: string): HeadingRange[] {
   const escaped = escapeRegExp(heading.trim());
-  const legacyCalendarSuffix = String.raw`(?:\s+(?:📅\s*)?\d{4}-\d{2}-\d{2}(?:\s+#[^\s#]+)*)?`;
-  const expression = new RegExp(`(^|\\r?\\n)${escaped}${legacyCalendarSuffix}[^\\S\\r\\n]*(?=\\r?\\n|$)`, "gi");
+  const legacyCalendarSuffix = String.raw`(?:[ \t]+(?:📅[ \t]*)?\d{4}-\d{2}-\d{2}(?:[ \t]+#[^\s#]+)*)?`;
+  const normalHeading = new RegExp(`^${escaped}${legacyCalendarSuffix}[ \\t]*$`, "i");
+  const headingText = escapeRegExp(heading.trim().replace(/^#{1,6}[ \t]+/, ""));
+  const prefix = new RegExp(`^#{1,6}[ \\t]+${headingText}([ \\t]*.*)$`, "i");
+  const expression = /(^|\r?\n)(#{1,6}[ \t]+[^\r\n]*)/g;
   const ranges: HeadingRange[] = [];
   let match: RegExpExecArray | null;
 
   while ((match = expression.exec(content)) !== null) {
+    const line = match[2] ?? "";
+    const suffix = line.match(prefix)?.[1];
+    const inlineTask = suffix === undefined ? undefined : recoverHeadingTask(suffix);
+    if (!normalHeading.test(line) && !inlineTask) continue;
     const headingStart = match.index + (match[1]?.length ?? 0);
     const headingEnd = endOfLineIndex(content, headingStart);
     const rest = content.slice(headingEnd);
     const nextHeading = rest.match(/(^|\r?\n)#{1,6}\s+\S/);
-    const sectionEnd = nextHeading?.index !== undefined ? headingEnd + nextHeading.index : content.length;
-    ranges.push({ headingStart, headingEnd, bodyStart: headingEnd, sectionEnd });
+    const sectionEnd = nextHeading?.index !== undefined
+      ? headingEnd + nextHeading.index + (nextHeading[1]?.length ?? 0)
+      : content.length;
+    ranges.push({ headingStart, headingEnd, bodyStart: headingEnd, sectionEnd, inlineTask });
   }
 
   return ranges;
+}
+
+// Recognize only a task joined to the managed heading with the importer's own
+// colour span, a wikilink and a Tasks date. Similar user headings stay untouched.
+function recoverHeadingTask(suffix: string): string | undefined {
+  const task = suffix.match(/^[ \t]*(?:([-*+][ \t]+\[[ xX]\])|\])[ \t]+(<span\b[^\r\n]*$)/i);
+  if (!task?.[2]
+    || !/^<span\b[^>]*class=["'](?:calendar-importer-swatch|calendar-task-sync-swatch)["'][^>]*>[^<]*<\/span>[ \t]+\[\[[^\r\n]+\]\]/i.test(task[2])
+    || !/[📅⏳][ \t]+\d{4}-\d{2}-\d{2}(?:[ \t]+#[^\s#]+)*[ \t]*$/u.test(task[2])) {
+    return undefined;
+  }
+  return `${task[1] ?? "- [ ]"} ${task[2]}`;
 }
 
 function removeHeadingRanges(content: string, ranges: HeadingRange[]): string {

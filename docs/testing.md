@@ -22,6 +22,8 @@ Use a disposable vault and a synthetic feed first. Do not use a shared or produc
 - On iPhone, iPad, or Android, install or update through Community Plugins and run one sync while Obsidian is active.
 - With two devices sharing a vault, turn off **Write calendar notes on this device** on the secondary device. Confirm its manual sync does not fetch feeds or edit notes, but it can still tick a synced task. After the vault syncs, run the writer and confirm the task stays checked.
 - Test a note with repeated calendar sections and checked/unchecked copies of one event. Confirm the next writer sync creates a `.bak` file and leaves one checked copy.
+- In a synthetic note, join an imported task's swatch, wikilink and date onto the calendar heading, then put duplicate tasks below it. Include a nested heading variant. Confirm sync backs up the original, leaves one clean managed heading, preserves completions and unrelated sections, and produces the same Markdown on the next sync. A failed backup must stop the repair.
+- Enable **Sync on startup** and **Tasteful** banter. Reload the plugin with an unchanged synthetic feed and confirm one quote appears after success. Confirm **Off**, failed syncs and read-only skipped syncs do not show a success quote.
 
 If something feels off, please include:
 

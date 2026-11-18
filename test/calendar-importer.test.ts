@@ -15,6 +15,7 @@ import {
   extractCompletedTaskLines,
   extractCompletionStates,
   getTaskIdentity,
+  hasDuplicateManagedSections,
   moveCompletedTasksToCompletedSection,
   prepareCompletedTaskLines,
   reopenCompletedTasksInNote,
@@ -1020,6 +1021,18 @@ describe("settings and cache recovery", () => {
     expect(shouldShowBanter(banterSettings, "mad-max", false, changedResult, new Date(now.getTime() + 1))).toBe(true);
   });
 
+  it("shows a startup quote after a successful unchanged sync while honoring off and failure", () => {
+    const now = new Date("2026-08-02T10:00:00Z");
+    const result = { success: true, skipped: false, eventCount: 1, message: "Synced.", errors: [], reportCount: 0,
+      changeSummary: { added: 0, updated: 0, removed: 0, unchanged: 1, completedMoved: 0, completedPreserved: 0, filtered: 0 } };
+    const state = { ...DEFAULT_SETTINGS, lastBanterAt: now.toISOString(), banterBag: ["I parse, therefore iCal."] };
+    expect(takeSyncBanter(state, "tasteful", false, result, now, true)).toBe("I parse, therefore iCal.");
+    expect(shouldShowBanter(state, "tasteful", false, result, now)).toBe(false);
+    expect(shouldShowBanter(state, "off", false, result, now, true)).toBe(false);
+    expect(shouldShowBanter(state, "tasteful", false, { ...result, success: false }, now, true)).toBe(false);
+    expect(shouldShowBanter(state, "tasteful", false, { ...result, errors: ["Synthetic failure"] }, now, true)).toBe(false);
+  });
+
   it("keeps background banter quiet when a sync has no changes or errors", () => {
     const unchangedResult = {
       success: true,
@@ -1320,6 +1333,37 @@ describe("note block management", () => {
     expect(repaired).toContain("Keep this comment.");
     expect(repaired).toContain("## My Calendar Events\n- [ ] Fresh event");
     expect(repaired).not.toContain("Shared event");
+  });
+
+  it.each([["\n", "##"], ["\r\n", "###"], ["\n", "####"]])("repairs a task joined to the managed heading with %j newlines and %s depth", (newline, depth) => {
+    const joinedTask = `- [x] <span class="calendar-importer-swatch" style="color:#0088FF">■</span> [[Calendar/Synthetic/260714 - Other event|Other event]] - Tuesday - All day ${calendarMarker} 2026-07-14`;
+    const checked = `- [x] Thursday event ${calendarMarker} 2026-07-16`;
+    const note = ["# Notes", "Keep this introduction.", "## My Calendar Events", "- [ ] Thursday event",
+      `${depth} My Calendar Events ${joinedTask}`, checked, "## Personal tasks", "- [ ] Keep this manual task"].join(newline);
+    expect(hasDuplicateManagedSections(note, settings)).toBe(true);
+    expect(extractCompletedTaskLines(note, settings)[getTaskIdentity(joinedTask)]).toBe(joinedTask);
+    expect(extractCompletedTaskLines(note, settings)[getTaskIdentity(checked)]).toBe(checked);
+    const replacement = replaceManagedBlock(note, "- [ ] Fresh task", settings).content;
+    expect(replacement.match(/^## My Calendar Events\r?$/gm)).toHaveLength(1);
+    expect(replacement).not.toContain("<span");
+    expect(replacement).toContain(`## Personal tasks${newline}- [ ] Keep this manual task`);
+    expect(replacement).toContain("Keep this introduction.");
+    expect(replaceManagedBlock(replacement, "- [ ] Fresh task", settings).content).toBe(replacement);
+  });
+
+  it("repairs the truncated checkbox heading signature but leaves similar user headings alone", () => {
+    const suffix = `] <span class="calendar-importer-swatch" style="color:#0088FF">■</span> [[Calendar/Synthetic/Other event|Other event]] - Tuesday - All day ${calendarMarker} 2026-07-14`;
+    const note = `## My Calendar Events ${suffix}\n- [ ] Stale duplicate\n## My Calendar Events archive\nKeep this text\n`;
+    expect(hasDuplicateManagedSections(note, settings)).toBe(true);
+    const replaced = replaceManagedBlock(note, "- [ ] Fresh task", settings).content;
+    expect(replaced).toContain("## My Calendar Events\n- [ ] Fresh task\n");
+    expect(replaced).not.toContain("Stale duplicate");
+    expect(replaced).toContain("## My Calendar Events archive\nKeep this text");
+  });
+
+  it("keeps a heading at end of file separate from the first task", () => {
+    expect(replaceManagedBlock("## My Calendar Events", "- [ ] First task", settings).content)
+      .toBe("## My Calendar Events\n- [ ] First task\n");
   });
 
   it("repairs legacy dated calendar headings with calendar tags", () => {

@@ -34,7 +34,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
 
     if (this.settings.syncOnStartup) {
       this.app.workspace.onLayoutReady(() => {
-        this.runSafely(() => this.syncNow("automatic"));
+        this.runSafely(() => this.syncNow("startup"));
       });
     }
   }
@@ -118,7 +118,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     }
   }
 
-  async syncNow(trigger: "manual" | "automatic" = "manual"): Promise<SyncResult | null> {
+  async syncNow(trigger: "manual" | "automatic" | "startup" = "manual"): Promise<SyncResult | null> {
     const result = await this.engine.sync();
 
     if (result.skipped) {
@@ -131,7 +131,7 @@ export default class CalendarTaskSyncPlugin extends Plugin {
     this.settings.lastSyncTime = new Date().toISOString();
     this.settings.lastSyncResult = result.message;
     this.settings.lastError = result.errors.length > 0 ? result.errors.join("\n") : "";
-    const banter = takeSyncBanter(this.settings, this.settings.wittyBanterMode, trigger === "manual", result);
+    const banter = takeSyncBanter(this.settings, this.settings.wittyBanterMode, trigger === "manual", result, new Date(), trigger === "startup");
     await this.queueSettingsSave();
 
     if (result.success) {

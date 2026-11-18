@@ -109,6 +109,55 @@ describe("sync write safety", () => {
     expect(Object.keys(settings.syncCache)).toHaveLength(1);
   });
 
+  it("backs up and repairs contaminated heading duplicates across repeated imports", async () => {
+    const dateMarker = String.fromCodePoint(0x1f4c5);
+    const swatch = '<span class="calendar-importer-swatch" style="color:#0088FF">■</span>';
+    const other = `- [ ] ${swatch} [[Calendar/Synthetic/260714 - Other event|Other event]] - Tuesday - All day ${dateMarker} 2026-07-14`;
+    const first = `- [ ] First meeting - Thursday - 09:00 ${dateMarker} 2026-07-16`;
+    const second = `- [x] Second meeting - Thursday - 10:00 ${dateMarker} 2026-07-16`;
+    let content = ["Personal introduction", "## My Calendar Events", first, second,
+      `### My Calendar Events ${other}`, first, second, "## Personal tasks", "- [ ] Keep me"].join("\n");
+    const original = content;
+    const file = Object.assign(new TFile(), { path: DEFAULT_SETTINGS.calendarNotePath });
+    const backups: string[] = [];
+    let backupUnavailable = true;
+    const app = { vault: {
+      getAbstractFileByPath: (path: string) => path === file.path ? file : null,
+      read: vi.fn(async () => content),
+      create: vi.fn(async (_path: string, value: string) => {
+        if (backupUnavailable) throw new Error("Synthetic backup failure");
+        backups.push(value);
+        return new TFile();
+      }),
+      process: vi.fn(async (_file: TFile, update: (value: string) => string) => { content = update(content); return content; }),
+    } } as unknown as App;
+    const settings: CalendarTaskSyncSettings = { ...DEFAULT_SETTINGS, syncCache: {}, timezone: "UTC", includeColorSwatch: false,
+      feeds: [{ id: "synthetic", name: "Synthetic", url: "https://calendar.example/test.ics", enabled: true }] };
+    mocks.requestUrl.mockResolvedValue({ status: 200, text: ["BEGIN:VCALENDAR", "VERSION:2.0",
+      "BEGIN:VEVENT", "UID:first", "SUMMARY:First meeting", "DTSTART:20260716T090000Z", "END:VEVENT",
+      "BEGIN:VEVENT", "UID:second", "SUMMARY:Second meeting", "DTSTART:20260716T100000Z", "END:VEVENT",
+      "END:VCALENDAR"].join("\r\n") });
+    const engine = new CalendarTaskSyncEngine(app, () => settings);
+    expect((await engine.sync()).success).toBe(false);
+    expect(content).toBe(original);
+    expect(settings.syncCache).toEqual({});
+    expect(app.vault.process).not.toHaveBeenCalled();
+    backupUnavailable = false;
+    expect((await engine.sync()).success).toBe(true);
+    expect(backups).toEqual([original]);
+    expect(content.match(/First meeting/g)).toHaveLength(1);
+    expect(content.match(/Second meeting/g)).toHaveLength(1);
+    expect(content.match(/^## My Calendar Events$/gm)).toHaveLength(1);
+    expect(content).not.toContain("<span");
+    expect(content).not.toContain("Other event");
+    expect(content).toContain(second);
+    expect(content).toContain("## Personal tasks\n- [ ] Keep me");
+    const repaired = content;
+    expect((await engine.sync()).success).toBe(true);
+    expect(content).toBe(repaired);
+    expect(backups).toEqual([original]);
+  });
+
   it("does not touch notes when a feed request fails", async () => {
     const process = vi.fn();
     const app = {

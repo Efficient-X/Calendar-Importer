@@ -88,7 +88,7 @@ Keep that section for imported events. Put your own tasks under a separate headi
 3. Tick one imported task and sync again. It should stay completed, with one copy of the event.
 4. For a vault shared across devices, choose one writer. Turn off **Write calendar notes on this device** on each secondary device before enabling automatic sync there.
 
-For startup imports, enable **Sync on startup**. The existing **Witty banter** setting controls the short quotes shown after successful syncs, including startup syncs; failed imports do not show a success quote.
+For startup imports, enable **Sync on startup**. **Witty banter** controls the short quotes shown after successful syncs. Tasteful shows one on a successful startup sync even when no events changed; Off silences quotes. Failed or skipped imports do not show a success quote.
 
 ### Troubleshooting
 
@@ -100,6 +100,10 @@ For startup imports, enable **Sync on startup**. The existing **Witty banter** s
 | `<span ...>` appears beside a task | Colour swatches use HTML. Switch from Source mode to Live Preview or Reading view, or turn off **Show colour swatches** and sync again. |
 | A fetch or network error | Keep the last good tasks, restore connectivity or correct the feed link, and retry. Failed feed downloads leave the calendar task sections alone. |
 | A task reappears after completion | Check **Preserve manual completion**, the shared-vault writer setting, and whether another device has finished syncing the note. |
+
+If duplicate Tasks results show a calendar heading followed by raw `<span ...>` and `[[...]]` text in their source breadcrumb, inspect the source note. Older builds could join the first task onto a heading when the heading had no final newline. The importer can now recognize that specific damaged heading pattern (including nested headings), back up the original note to a `.bak` file, and rebuild the managed sections on the next successful sync. Completed tasks in recognized sections stay completed. Keep the backup until you have checked the result.
+
+Other malformed headings, copies outside the managed sections, and duplicates across different notes need manual review. Back up the note, turn off automatic sync on other devices, then compare the Markdown around both copies. Do not delete an entire section based only on its Tasks breadcrumb. A sanitized excerpt showing the heading, duplicate task lines and next heading, plus the installed plugin version, is useful for diagnosis.
 
 If it still fails, [open a bug report](https://github.com/Efficient-X/Calendar-Importer/issues/new?template=bug_report.yml) with the Obsidian/plugin versions, operating system, provider, and a synthetic example. Remove private feed URLs, tokens, event details, and personal information from screenshots and logs.
 

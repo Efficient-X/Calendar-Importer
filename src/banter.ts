@@ -85,8 +85,9 @@ export function takeSyncBanter(
   isManual: boolean,
   result: SyncResult,
   now = new Date(),
+  isStartup = false,
 ): string | undefined {
-  if (!shouldShowBanter(settings, mode, isManual, result, now)) {
+  if (!shouldShowBanter(settings, mode, isManual, result, now, isStartup)) {
     return undefined;
   }
 
@@ -104,11 +105,12 @@ export function shouldShowBanter(
   isManual: boolean,
   result: SyncResult,
   now = new Date(),
+  isStartup = false,
 ): boolean {
   if (mode === "off" || !result.success || result.errors.length > 0) {
     return false;
   }
-  if (mode === "mad-max" || isManual) {
+  if (mode === "mad-max" || isManual || isStartup) {
     return true;
   }
   if (!hasMeaningfulChanges(result)) {

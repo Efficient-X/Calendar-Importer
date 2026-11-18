@@ -897,7 +897,7 @@ export class CalendarTaskSyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Witty banter")
-      .setDesc("Adds a short line to successful sync notices. Tasteful shows it on manual syncs and limits automatic syncs to once per hour; Mad Max shows it after every successful sync.")
+      .setDesc("Adds a short line to successful sync notices. Tasteful shows it on startup and manual syncs, and limits other automatic syncs to once per hour when events change; Mad Max shows it after every successful sync.")
       .addDropdown((dropdown) => dropdown
         .addOption("off", "Off")
         .addOption("tasteful", "Tasteful (recommended)")
