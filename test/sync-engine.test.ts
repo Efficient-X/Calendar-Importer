@@ -23,6 +23,92 @@ describe("sync write safety", () => {
     mocks.requestUrl.mockReset();
   });
 
+  it.each([false, true])("respects disabled note creation with daily notes = %s", async (useDailyNotes) => {
+    const create = vi.fn();
+    const createFolder = vi.fn();
+    const process = vi.fn();
+    const app = { vault: { getAbstractFileByPath: () => null, create, createFolder, process } } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS, syncCache: {}, timezone: "UTC", createNoteIfMissing: false,
+      useDailyNotes, errorReportingEnabled: false,
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+    };
+    mocks.requestUrl.mockResolvedValue({ status: 200, text: [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "UID:test",
+      "SUMMARY:Test meeting", "DTSTART:20260716T090000Z", "END:VEVENT", "END:VCALENDAR",
+    ].join("\r\n") });
+
+    const result = await new CalendarTaskSyncEngine(app, () => settings).sync();
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(" ")).toContain("note creation is disabled");
+    expect(create).not.toHaveBeenCalled();
+    expect(createFolder).not.toHaveBeenCalled();
+    expect(process).not.toHaveBeenCalled();
+    expect(settings.syncCache).toEqual({});
+  });
+
+  it.each(["clear", "reopen"])("stops delayed %s actions when the device becomes read-only", async (action) => {
+    const file = Object.assign(new TFile(), { path: DEFAULT_SETTINGS.calendarNotePath });
+    const original = "## My Calendar Events\n- [x] Keep completed\n";
+    let content = original;
+    let writable = true;
+    const app = {
+      vault: {
+        getAbstractFileByPath: () => file,
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          writable = false;
+          content = update(content);
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings = { ...DEFAULT_SETTINGS, syncCache: {} };
+    const engine = new CalendarTaskSyncEngine(app, () => settings, () => writable);
+
+    await expect(action === "clear" ? engine.clearCompletedCalendarTasks() : engine.reopenCompletedCalendarTasks("all"))
+      .rejects.toThrow("read-only");
+    expect(content).toBe(original);
+    expect(settings.syncCache).toEqual({});
+  });
+
+  it("retries an interrupted note write without duplicating tasks or committing a failed cache", async () => {
+    const file = Object.assign(new TFile(), { path: DEFAULT_SETTINGS.calendarNotePath });
+    let content = "Personal notes\n\n## My Calendar Events\n";
+    let failWrite = true;
+    const app = {
+      vault: {
+        getAbstractFileByPath: () => file,
+        process: vi.fn(async (_file: TFile, update: (value: string) => string) => {
+          const next = update(content);
+          if (failWrite) throw new Error("Synthetic interrupted write");
+          content = next;
+          return content;
+        }),
+      },
+    } as unknown as App;
+    const settings: CalendarTaskSyncSettings = {
+      ...DEFAULT_SETTINGS, syncCache: {}, timezone: "UTC", includeColorSwatch: false,
+      feeds: [{ id: "work", name: "Work", url: "https://calendar.example/work.ics", enabled: true }],
+    };
+    mocks.requestUrl.mockResolvedValue({ status: 200, text: [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "UID:test",
+      "SUMMARY:Test meeting", "DTSTART:20260716T090000Z", "END:VEVENT", "END:VCALENDAR",
+    ].join("\r\n") });
+    const engine = new CalendarTaskSyncEngine(app, () => settings);
+    expect((await engine.sync()).success).toBe(false);
+    expect(settings.syncCache).toEqual({});
+    expect(content).not.toContain("Test meeting");
+    failWrite = false;
+    expect((await engine.sync()).success).toBe(true);
+    const successfulContent = content;
+    expect((await engine.sync()).success).toBe(true);
+    expect(content).toBe(successfulContent);
+    expect(content.match(/Test meeting/g)).toHaveLength(1);
+    expect(content).toContain("Personal notes");
+    expect(Object.keys(settings.syncCache)).toHaveLength(1);
+  });
+
   it("does not touch notes when a feed request fails", async () => {
     const process = vi.fn();
     const app = {

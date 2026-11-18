@@ -38,14 +38,14 @@ Your calendar events can be turned into basic text tasks or wikilinked notes if 
 
 In Obsidian:
 
-1. Search for `Calendar Importer`.
+1. Open `Settings > Community plugins > Browse` and search for `Calendar Importer`.
 2. Install it.
 3. Enable it.
 4. Open `Settings > Calendar Importer`.
 5. Paste a calendar feed link.
 6. Click `Sync now`.
 
-That's the whole dance.
+For a downloaded release or a source checkout, follow the [manual and development installation steps](docs/installation.md). A source ZIP needs building first; it does not contain `main.js`.
 
 ## Getting Started
 
@@ -78,6 +78,30 @@ Calendar/My Calendar Events.md
 ```
 
 The plugin only manages its own calendar section. Your notes outside that section are left alone.
+
+Keep that section for imported events. Put your own tasks under a separate heading. If **Create note if missing** is off, create the destination note yourself before syncing; the importer will report a missing note instead of creating it.
+
+### Check the first sync
+
+1. Start with one feed and confirm the destination path and timezone in settings.
+2. Click `Sync now`, then open the calendar note and check one timed and one all-day event.
+3. Tick one imported task and sync again. It should stay completed, with one copy of the event.
+4. For a vault shared across devices, choose one writer. Turn off **Write calendar notes on this device** on each secondary device before enabling automatic sync there.
+
+For startup imports, enable **Sync on startup**. The existing **Witty banter** setting controls the short quotes shown after successful syncs, including startup syncs; failed imports do not show a success quote.
+
+### Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Nothing imports | Enable the feed, check its URL and sync window, then read the last error in plugin settings. The URL must return ICS text rather than a calendar website or login page. |
+| A missing-note error | Check the output path. Create the note yourself or enable **Create note if missing**. |
+| Events appear twice | Check whether the same calendar was added twice, and make sure only one device writes the shared note. Back up the note before changing feeds or headings. |
+| `<span ...>` appears beside a task | Colour swatches use HTML. Switch from Source mode to Live Preview or Reading view, or turn off **Show colour swatches** and sync again. |
+| A fetch or network error | Keep the last good tasks, restore connectivity or correct the feed link, and retry. Failed feed downloads leave the calendar task sections alone. |
+| A task reappears after completion | Check **Preserve manual completion**, the shared-vault writer setting, and whether another device has finished syncing the note. |
+
+If it still fails, [open a bug report](https://github.com/Efficient-X/Calendar-Importer/issues/new?template=bug_report.yml) with the Obsidian/plugin versions, operating system, provider, and a synthetic example. Remove private feed URLs, tokens, event details, and personal information from screenshots and logs.
 
 ### Use daily notes
 

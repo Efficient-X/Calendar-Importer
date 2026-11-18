@@ -73,6 +73,10 @@ const SYNC_BANTER = [
   "Your tasks are in order. The universe made no such promise.",
   "No time machines were required for this import.",
   "I speak fluent DTSTART and conversational procrastination.",
+  "Booting the calendar goblin. Please keep all Tuesdays inside the vault.",
+  "Your schedule has loaded. My coffee remains a missing dependency.",
+  "Good morning, time traveller. Same deadlines, fresh checkboxes.",
+  "The calendar woke up first. Suspiciously keen, that one.",
 ] as const;
 
 export function takeSyncBanter(

@@ -312,7 +312,10 @@ export class CalendarTaskSyncEngine {
       if (!file) {
         return undefined;
       }
-      await this.app.vault.process(file, (content) => replaceErrorReportingSection(content, reports, settings).content);
+      await this.app.vault.process(file, (content) => {
+        this.requireWriter();
+        return replaceErrorReportingSection(content, reports, settings).content;
+      });
       return path;
     } catch (error) {
       errors.push(`${path}: could not update Error Reporting: ${errorMessage(error)}`);
@@ -360,6 +363,7 @@ export class CalendarTaskSyncEngine {
       if (currentExisting) {
         throw new Error(`a file already exists at ${current}`);
       }
+      this.requireWriter();
       await this.app.vault.createFolder(current);
     }
   }
@@ -416,7 +420,7 @@ export class CalendarTaskSyncEngine {
     try {
       this.requireWriter();
       await this.saveOpenMarkdownViews(path);
-      const file = await this.ensureNote(path, settings.createNoteIfMissing || events.length > 0 || (settings.errorReportingEnabled && reports.length > 0));
+      const file = await this.ensureNote(path, settings.createNoteIfMissing);
       if (!file) {
         errors.push(`${path}: note does not exist and note creation is disabled.`);
         return emptySummary(filtered);
@@ -681,6 +685,7 @@ export class CalendarTaskSyncEngine {
     }
 
     await this.ensureFolder(normalizedPath);
+    this.requireWriter();
     return this.app.vault.create(normalizedPath, "");
   }
 
@@ -701,6 +706,7 @@ export class CalendarTaskSyncEngine {
       if (existing) {
         throw new Error(`${current} exists but is not a folder.`);
       }
+      this.requireWriter();
       await this.app.vault.createFolder(current);
     }
   }
@@ -714,6 +720,7 @@ export class CalendarTaskSyncEngine {
       backupPath = `${basePath}-${suffix}.bak`;
       suffix += 1;
     }
+    this.requireWriter();
     await this.app.vault.create(backupPath, content);
   }
 
@@ -749,6 +756,7 @@ export class CalendarTaskSyncEngine {
 
       let changed = false;
       await this.app.vault.process(file, (existing) => {
+        this.requireWriter();
         const result = update(existing, settings);
         changed = result.changed;
         affectedCount += result.affectedCount;
