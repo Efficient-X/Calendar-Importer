@@ -47,6 +47,17 @@ const calendarMarker = String.fromCodePoint(0x1f4c5);
 const scheduledMarker = String.fromCodePoint(0x23f3);
 
 describe("release notes", () => {
+  it("explains the 1.3.1 repair, backup, write controls and startup behavior", () => {
+    const note = getReleaseNote("1.3.1");
+    expect(note.kind).toBe("fixes");
+    const highlights = note.highlights.join(" ");
+    expect(highlights).toContain("backing up the original note first");
+    expect(highlights).toContain("keeping checked tasks");
+    expect(highlights).toContain("read-only");
+    expect(highlights).toContain("startup sync");
+    expect(highlights).toContain(".bak");
+  });
+
   it("describes maintenance releases as fixes", () => {
     const note = getReleaseNote("1.2.8");
 

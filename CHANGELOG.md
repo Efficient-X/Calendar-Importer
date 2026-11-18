@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1
+
+- Repair duplicate calendar tasks left beneath a damaged heading containing an imported task's colour span, wikilink and date. Recognize nested heading variants, back up the original note to a `.bak` file before cleanup, and preserve checked tasks. A failed backup stops the repair. Other malformed headings or copies outside managed sections still need manual review.
+- Keep repeated imports stable, including section spacing, and cover interrupted-write retries without committing a failed sync cache.
+- Honor **Create note if missing** instead of creating a missing destination when the option is off. Recheck the device's writer setting before delayed note, completion, error-report, folder and backup writes.
+- Clarify setup, release versus source downloads, first-sync checks, shared-vault use and troubleshooting, including safe duplicate cleanup.
+- Add four original sync quotes. **Tasteful** banter now appears after a successful startup sync even when no events changed; **Off**, failed imports and skipped imports remain quiet. Enable **Sync on startup** to import at startup.
+- Keep mobile support and the minimum Obsidian version at 1.8.7. After updating, use one writer device, run **Sync now**, and check the repaired note before removing its backup.
+- Refresh affected development dependencies so the release's high-severity dependency audit passes.
+
 ## 1.3.0
 
 - Add a device-local writer switch for shared vaults: leave calendar imports on one device and turn them off on the others, while all devices can still view and tick synced tasks.

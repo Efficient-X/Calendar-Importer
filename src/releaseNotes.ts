@@ -6,6 +6,18 @@ export interface ReleaseNote {
 }
 
 const RELEASE_NOTES: Record<string, ReleaseNote> = {
+  "1.3.1": {
+    headline: "The heading goblin has been separated from its task list.",
+    highlights: [
+      "Repair duplicate tasks beneath recognizable damaged calendar headings, backing up the original note first and keeping checked tasks. Review other malformed sections manually.",
+      "Keep repeated imports stable and respect disabled note creation and the device's read-only setting during delayed writes.",
+      "Find clearer setup, shared-vault and troubleshooting instructions, including safe duplicate cleanup.",
+      "Enjoy four new quotes and a Tasteful quote after a successful startup sync, even when nothing changed. Off, failed and skipped imports stay quiet.",
+      "After updating, leave one device writing calendar notes, run Sync now, and keep the .bak file until you have checked any repair.",
+    ],
+    coffeeLine: "If this untangled your calendar breadcrumbs, the heading goblin owes you a coffee.",
+    kind: "fixes",
+  },
   "1.3.0": {
     headline: "Two devices, one calendar writer. The timeline thanks you.",
     highlights: [
